@@ -1,0 +1,51 @@
+# ==========================================
+# Ficheiros do Git
+# ==========================================
+.git
+.gitignore
+
+# ==========================================
+# Ambientes Virtuais e Cache Python
+# ==========================================
+venv/
+env/
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ==========================================
+# Configurações de Segurança e Locais
+# As variáveis virão do docker-compose, não devem ir na imagem
+# ==========================================
+.env
+.env.*
+
+# ==========================================
+# Dados Brutos
+# Os containers do backend/frontend não precisam do CSV de origem. 
+# O PostgreSQL já terá os dados inseridos.
+# ==========================================
+*.csv
+*.rar
+*.zip
+vacinacao_ce_consolidado.csv
+vacinacao_ce_consolidado.rar
+
+# ==========================================
+# Documentação e Notebooks
+# Ignorar para reduzir o tamanho da build final
+# ==========================================
+docs/
+*.md
+*.pdf
+*.ipynb
+.ipynb_checkpoints/
+
+# ==========================================
+# IDEs e Ficheiros Temporários
+# ==========================================
+.vscode/
+.idea/
+.DS_Store
+*.log

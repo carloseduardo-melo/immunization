@@ -1,0 +1,53 @@
+# ==========================================
+# Ambientes Virtuais Python
+# ==========================================
+venv/
+env/
+.venv/
+Pipfile.lock
+
+# ==========================================
+# Ficheiros de Configuração e Segredos
+# ==========================================
+.env
+.env.local
+.env.development
+
+# ==========================================
+# Cache e Ficheiros Compilados Python
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# ==========================================
+# Dados e Ficheiros Pesados (Big Data)
+# Ignorar ficheiros do SI-PNI para evitar estouro de limite no Git
+# ==========================================
+*.csv
+*.rar
+*.zip
+*.parquet
+vacinacao_ce_consolidado.csv
+vacinacao_ce_consolidado.rar
+
+# ==========================================
+# Jupyter Notebooks (Cache)
+# ==========================================
+.ipynb_checkpoints/
+
+# ==========================================
+# Logs e Banco de Dados Local
+# ==========================================
+*.log
+*.sqlite3
+postgres_data/
+
+# ==========================================
+# Configurações de IDE e SO
+# ==========================================
+.vscode/
+.idea/
+.DS_Store
+*.swp
