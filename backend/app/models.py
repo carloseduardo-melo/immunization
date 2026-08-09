@@ -39,7 +39,7 @@ class RegistroVacinacao(Base):
     municipio_vacina_id = Column(String(7), ForeignKey("municipios.id_ibge"), nullable=False)
     teve_deslocamento = Column(Boolean, nullable=True)
     quantidade = Column(Integer, nullable=False, server_default=text("1"))
-    status_dado = Column(String(25), nullable=False, server_default=text("'VALIDO'"))
+    status_dado = Column(String(30), nullable=False, server_default=text("'VALIDO'"))
 
     __table_args__ = (
         CheckConstraint("quantidade > 0", name="chk_quantidade_positiva"),
