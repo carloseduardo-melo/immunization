@@ -1,0 +1,8 @@
+# Interface Web
+streamlit==1.36.0
+
+# Processamento de Dados Visuais
+pandas==2.2.2
+
+# Comunicação HTTP com a API (FastAPI)
+requests==2.32.3
