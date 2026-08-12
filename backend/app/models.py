@@ -1,9 +1,49 @@
+import uuid
+
 from sqlalchemy import (
-    Column, String, Boolean, Integer, SmallInteger, Date, 
-    ForeignKey, CheckConstraint, Index, text, TIMESTAMP
+    Column, String, Boolean, Integer, SmallInteger, Date,
+    ForeignKey, CheckConstraint, Index, text, TIMESTAMP, JSON
 )
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB as PG_JSONB
 from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.types import CHAR, TypeDecorator
+
+
+class GUID(TypeDecorator):
+    impl = CHAR
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(PG_UUID(as_uuid=True))
+        return dialect.type_descriptor(CHAR(36))
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return value
+        if dialect.name == "postgresql":
+            return value
+        if not isinstance(value, uuid.UUID):
+            return str(uuid.UUID(value))
+        return str(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return value
+        if not isinstance(value, uuid.UUID):
+            return uuid.UUID(value)
+        return value
+
+
+class JSONB(TypeDecorator):
+    impl = JSON
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(PG_JSONB())
+        return dialect.type_descriptor(JSON())
+
 
 Base = declarative_base()
 
@@ -31,7 +71,7 @@ class Vacina(Base):
 class RegistroVacinacao(Base):
     __tablename__ = "registros_vacinacao"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     data_vacinacao = Column(Date, nullable=False)
     idade = Column(SmallInteger, nullable=True) # Aceita NULL
     vacina_id = Column(Integer, ForeignKey("vacinas.id"), nullable=True) # Aceita NULL
@@ -61,7 +101,7 @@ class RegistroVacinacao(Base):
 class UsuarioAdmin(Base):
     __tablename__ = "usuarios_admin"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     email = Column(String(150), unique=True, nullable=False)
     senha_hash = Column(String(255), nullable=False)
     role = Column(String(20), nullable=False, server_default=text("'GESTOR_MUNICIPAL'"))
@@ -78,11 +118,11 @@ class UsuarioAdmin(Base):
 class LogAuditoria(Base):
     __tablename__ = "log_auditoria"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     tabela = Column(String(50), nullable=False)
-    registro_id = Column(UUID(as_uuid=True), nullable=False)
+    registro_id = Column(GUID(), nullable=False)
     acao = Column(String(10), nullable=False)
-    usuario_id = Column(UUID(as_uuid=True), ForeignKey("usuarios_admin.id"), nullable=False)
+    usuario_id = Column(GUID(), ForeignKey("usuarios_admin.id"), nullable=False)
     valores_antigos = Column(JSONB, nullable=True)
     valores_novos = Column(JSONB, nullable=True)
     criado_em = Column(TIMESTAMP, nullable=False, server_default=text("now()"))
@@ -96,7 +136,7 @@ class LogAuditoria(Base):
 class AlertaCompletude(Base):
     __tablename__ = "alertas_completude"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     referencia_ano = Column(SmallInteger, nullable=False)
     referencia_mes = Column(SmallInteger, nullable=False)
     municipio_id = Column(String(7), ForeignKey("municipios.id_ibge"), nullable=True)

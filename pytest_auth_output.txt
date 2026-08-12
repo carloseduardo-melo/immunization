@@ -1,0 +1,324 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.13.1, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\SIS88-PC\Documents\2026\ufca\2026.2\projeto3\sprint2\immunization
+configfile: pytest.ini
+plugins: anyio-4.12.1, cov-7.1.0
+collecting ... collected 4 items
+
+backend/tests/test_auth.py::test_health_check PASSED                     [ 25%]
+backend/tests/test_auth.py::test_login_success FAILED                    [ 50%]
+
+================================== FAILURES ===================================
+_____________________________ test_login_success ______________________________
+
+self = <sqlalchemy.engine.base.Connection object at 0x000001C0488A6450>
+dialect = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x000001C04870AC10>
+context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x000001C04888FD90>
+statement = <sqlalchemy.dialects.sqlite.base.SQLiteCompiler object at 0x000001C0489007C0>
+parameters = [('admin@example.com', 1, 0)]
+
+    def _exec_single_context(
+        self,
+        dialect: Dialect,
+        context: ExecutionContext,
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+    ) -> CursorResult[Any]:
+        """continue the _execute_context() method for a single DBAPI
+        cursor.execute() or cursor.executemany() call.
+    
+        """
+        if dialect.bind_typing is BindTyping.SETINPUTSIZES:
+            generic_setinputsizes = context._prepare_set_input_sizes()
+    
+            if generic_setinputsizes:
+                try:
+                    dialect.do_set_input_sizes(
+                        context.cursor, generic_setinputsizes, context
+                    )
+                except BaseException as e:
+                    self._handle_dbapi_exception(
+                        e, str(statement), parameters, None, context
+                    )
+    
+        cursor, str_statement, parameters = (
+            context.cursor,
+            context.statement,
+            context.parameters,
+        )
+    
+        effective_parameters: Optional[_AnyExecuteParams]
+    
+        if not context.executemany:
+            effective_parameters = parameters[0]
+        else:
+            effective_parameters = parameters
+    
+        if self._has_events or self.engine._has_events:
+            for fn in self.dispatch.before_cursor_execute:
+                str_statement, effective_parameters = fn(
+                    self,
+                    cursor,
+                    str_statement,
+                    effective_parameters,
+                    context,
+                    context.executemany,
+                )
+    
+        if self._echo:
+            self._log_info(str_statement)
+    
+            stats = context._get_cache_stats()
+    
+            if not self.engine.hide_parameters:
+                self._log_info(
+                    "[%s] %r",
+                    stats,
+                    sql_util._repr_params(
+                        effective_parameters,
+                        batches=10,
+                        ismulti=context.executemany,
+                    ),
+                )
+            else:
+                self._log_info(
+                    "[%s] [SQL parameters hidden due to hide_parameters=True]",
+                    stats,
+                )
+    
+        evt_handled: bool = False
+        try:
+            if context.execute_style is ExecuteStyle.EXECUTEMANY:
+                effective_parameters = cast(
+                    "_CoreMultiExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_executemany:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_executemany(
+                        cursor,
+                        str_statement,
+                        effective_parameters,
+                        context,
+                    )
+            elif not effective_parameters and context.no_parameters:
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute_no_params:
+                        if fn(cursor, str_statement, context):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_execute_no_params(
+                        cursor, str_statement, context
+                    )
+            else:
+                effective_parameters = cast(
+                    "_CoreSingleExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+>                   self.dialect.do_execute(
+                        cursor, str_statement, effective_parameters, context
+                    )
+
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\engine\base.py:1969: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x000001C04870AC10>
+cursor = <sqlite3.Cursor object at 0x000001C04879D440>
+statement = 'SELECT usuarios_admin.id AS usuarios_admin_id, usuarios_admin.email AS usuarios_admin_email, usuarios_admin.senha_has...do_id AS usuarios_admin_municipio_alocado_id \nFROM usuarios_admin \nWHERE usuarios_admin.email = ?\n LIMIT ? OFFSET ?'
+parameters = ('admin@example.com', 1, 0)
+context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x000001C04888FD90>
+
+    def do_execute(self, cursor, statement, parameters, context=None):
+>       cursor.execute(statement, parameters)
+E       sqlite3.OperationalError: no such table: usuarios_admin
+
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\engine\default.py:952: OperationalError
+
+The above exception was the direct cause of the following exception:
+
+    def test_login_success():
+>       response = client.post(
+            "/auth/login",
+            json={"email": "admin@example.com", "password": "senha123"},
+        )
+
+backend\tests\test_auth.py:49: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\testclient.py:546: in post
+    return super().post(
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py:1144: in post
+    return self.request(
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\testclient.py:445: in request
+    return super().request(
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py:914: in send
+    response = self._send_handling_auth(
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\testclient.py:348: in handle_request
+    raise exc
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\testclient.py:345: in handle_request
+    portal.call(self.app, scope, receive, send)
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\anyio\from_thread.py:334: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\anyio\from_thread.py:259: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\applications.py:1135: in __call__
+    await super().__call__(scope, receive, send)
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\applications.py:107: in __call__
+    await self.middleware_stack(scope, receive, send)
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\middleware\asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\routing.py:736: in app
+    await route.handle(scope, receive, send)
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\routing.py:290: in handle
+    await self.app(scope, receive, send)
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py:115: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py:101: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py:355: in app
+    raw_response = await run_endpoint_function(
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py:245: in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\concurrency.py:32: in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\anyio\to_thread.py:63: in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\anyio\_backends\_asyncio.py:2502: in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\anyio\_backends\_asyncio.py:986: in run
+    result = context.run(func, *args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+backend\app\routers\auth.py:12: in login
+    user = db.query(UsuarioAdmin).filter(UsuarioAdmin.email == login_data.email).first()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\orm\query.py:2766: in first
+    return self.limit(1)._iter().first()  # type: ignore
+           ^^^^^^^^^^^^^^^^^^^^^
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\orm\query.py:2864: in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\orm\session.py:2373: in execute
+    return self._execute_internal(
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\orm\session.py:2271: in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\orm\context.py:306: in orm_execute_statement
+    result = conn.execute(
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\engine\base.py:1421: in execute
+    return meth(
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\sql\elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\engine\base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\engine\base.py:1848: in _execute_context
+    return self._exec_single_context(
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\engine\base.py:1988: in _exec_single_context
+    self._handle_dbapi_exception(
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\engine\base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\engine\base.py:1969: in _exec_single_context
+    self.dialect.do_execute(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x000001C04870AC10>
+cursor = <sqlite3.Cursor object at 0x000001C04879D440>
+statement = 'SELECT usuarios_admin.id AS usuarios_admin_id, usuarios_admin.email AS usuarios_admin_email, usuarios_admin.senha_has...do_id AS usuarios_admin_municipio_alocado_id \nFROM usuarios_admin \nWHERE usuarios_admin.email = ?\n LIMIT ? OFFSET ?'
+parameters = ('admin@example.com', 1, 0)
+context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x000001C04888FD90>
+
+    def do_execute(self, cursor, statement, parameters, context=None):
+>       cursor.execute(statement, parameters)
+E       sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such table: usuarios_admin
+E       [SQL: SELECT usuarios_admin.id AS usuarios_admin_id, usuarios_admin.email AS usuarios_admin_email, usuarios_admin.senha_hash AS usuarios_admin_senha_hash, usuarios_admin.role AS usuarios_admin_role, usuarios_admin.municipio_alocado_id AS usuarios_admin_municipio_alocado_id 
+E       FROM usuarios_admin 
+E       WHERE usuarios_admin.email = ?
+E        LIMIT ? OFFSET ?]
+E       [parameters: ('admin@example.com', 1, 0)]
+E       (Background on this error at: https://sqlalche.me/e/20/e3q8)
+
+C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\engine\default.py:952: OperationalError
+============================== warnings summary ===============================
+backend\app\main.py:17
+  C:\Users\SIS88-PC\Documents\2026\ufca\2026.2\projeto3\sprint2\immunization\backend\app\main.py:17: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+..\..\..\..\..\..\..\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\applications.py:4576
+  C:\Users\SIS88-PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\applications.py:4576: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED backend/tests/test_auth.py::test_login_success - sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such table: usuarios_admin
+[SQL: SELECT usuarios_admin.id AS usuarios_admin_id, usuarios_admin.email AS usuarios_admin_email, usuarios_admin.senha_hash AS usuarios_admin_senha_hash, usuarios_admin.role AS usuarios_admin_role, usuarios_admin.municipio_alocado_id AS usuarios_admin_municipio_alocado_id 
+FROM usuarios_admin 
+WHERE usuarios_admin.email = ?
+ LIMIT ? OFFSET ?]
+[parameters: ('admin@example.com', 1, 0)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!
+=================== 1 failed, 1 passed, 2 warnings in 2.22s ===================
