@@ -65,6 +65,7 @@ class UsuarioAdmin(Base):
     email = Column(String(150), unique=True, nullable=False)
     senha_hash = Column(String(255), nullable=False)
     role = Column(String(20), nullable=False, server_default=text("'GESTOR_MUNICIPAL'"))
+    municipio_alocado_id = Column(String(7), nullable=True)
 
     __table_args__ = (
         CheckConstraint(

@@ -1,0 +1,23 @@
+{
+  "name": "immunization",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "pytest",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md,yml,yaml,css,scss,html,graphql,mdx}\"",
+    "prepare": "husky install"
+  },
+  "devDependencies": {
+    "eslint": "^8.0.0",
+    "husky": "^9.0.0",
+    "lint-staged": "^13.0.0",
+    "prettier": "^3.0.0"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,json,md,yml,yaml}": [
+      "npm run format",
+      "npm run lint"
+    ]
+  }
+}
