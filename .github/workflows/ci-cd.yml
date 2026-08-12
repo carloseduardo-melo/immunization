@@ -15,6 +15,17 @@ jobs:
   test-backend:
     name: Backend tests
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d postgres" --health-interval=10s --health-timeout=5s --health-retries=5
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -25,6 +36,29 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+      - name: Set DATABASE_URL for tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+        run: |
+          echo "DATABASE_URL=$DATABASE_URL" >> $GITHUB_ENV
+      - name: Wait for Postgres
+        run: |
+          python - <<'PY'
+import os, time
+import psycopg2
+url = os.getenv('DATABASE_URL')
+for i in range(30):
+    try:
+        conn = psycopg2.connect(url)
+        conn.close()
+        print('Postgres ready')
+        break
+    except Exception as e:
+        print('waiting for postgres...', i, e)
+        time.sleep(1)
+else:
+    raise SystemExit('Postgres did not become ready in time')
+PY
       - name: Run tests
         working-directory: backend
         run: |
