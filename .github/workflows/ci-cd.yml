@@ -2,9 +2,11 @@ name: CI/CD
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-    branches: [main]
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -15,6 +17,7 @@ jobs:
   test-backend:
     name: Backend tests
     runs-on: ubuntu-latest
+
     services:
       postgres:
         image: postgres:13
@@ -25,40 +28,57 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd="pg_isready -U postgres -d postgres" --health-interval=10s --health-timeout=5s --health-retries=5
+          --health-cmd="pg_isready -U postgres -d postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r backend/requirements.txt -r backend/requirements-dev.txt
-      - name: Set DATABASE_URL for tests
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+          pip install -r backend/requirements.txt
+          pip install -r backend/requirements-dev.txt
+
+      - name: Set DATABASE_URL
         run: |
-          echo "DATABASE_URL=$DATABASE_URL" >> $GITHUB_ENV
-        - name: Wait for Postgres
+          echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres" >> "$GITHUB_ENV"
+
+      - name: Wait for Postgres
         run: |
           python - <<'PY'
-          import os, time
+          import os
+          import time
           import psycopg2
-          url = os.getenv('DATABASE_URL')
+
+          url = os.environ["DATABASE_URL"]
+
           for i in range(30):
-            try:
-              conn = psycopg2.connect(url)
-              conn.close()
-              print('Postgres ready')
-              break
-            except Exception as e:
-              print('waiting for postgres...', i, e)
-              time.sleep(1)
+              try:
+                  conn = psycopg2.connect(url)
+                  conn.close()
+                  print("Postgres ready")
+                  break
+              except Exception as e:
+                  print(f"Waiting for Postgres... attempt {i + 1}/30")
+                  print(e)
+                  time.sleep(1)
           else:
-            raise SystemExit('Postgres did not become ready in time')
+              raise SystemExit("Postgres did not become ready in time")
           PY
+
       - name: Run tests
         working-directory: backend
         run: |
@@ -68,31 +88,39 @@ jobs:
     name: Build and push Docker images
     needs: test-backend
     runs-on: ubuntu-latest
+
     permissions:
       contents: read
       packages: write
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
+
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build and push backend image
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v6
         with:
           context: ./backend
           push: true
           tags: |
             ghcr.io/${{ github.repository }}/caminhos-imunizacao-backend:latest
             ghcr.io/${{ github.repository }}/caminhos-imunizacao-backend:${{ github.sha }}
+
       - name: Build and push frontend image
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v6
         with:
           context: ./frontend
           push: true
@@ -101,21 +129,39 @@ jobs:
             ghcr.io/${{ github.repository }}/caminhos-imunizacao-frontend:${{ github.sha }}
 
   deploy:
-    name: Deploy (main branch only)
+    name: Deploy production
     if: github.ref == 'refs/heads/main'
     needs: build-and-push
     runs-on: ubuntu-latest
+
     steps:
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v0.1.7
+        uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.DEPLOY_PORT }}
+          script_stop: true
           script: |
-            cd ${{ secrets.DEPLOY_PATH }}
-            echo "Pulling latest images"
+            set -e
+
+            cd "${{ secrets.DEPLOY_PATH }}"
+
+            echo "======================================"
+            echo "Deploy Caminhos da Imunização"
+            echo "======================================"
+
+            echo "Pulling latest Docker images..."
             docker compose pull
-            echo "Bringing containers up"
+
+            echo "Starting containers..."
             docker compose up -d --remove-orphans
+
+            echo "Cleaning unused images..."
+            docker image prune -f
+
+            echo "Checking containers..."
+            docker compose ps
+
+            echo "Deploy completed successfully!"
