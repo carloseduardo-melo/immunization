@@ -1,0 +1,6 @@
+#!/bin/sh
+
+echo "Running format, lint and tests before push..."
+npm run format
+npm run lint
+python -m pytest

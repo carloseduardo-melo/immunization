@@ -21,6 +21,8 @@ __pycache__/
 *$py.class
 .pytest_cache/
 
+
+node_modules/
 # ==========================================
 # Dados e Ficheiros Pesados (Big Data)
 # Ignorar ficheiros do SI-PNI para evitar estouro de limite no Git

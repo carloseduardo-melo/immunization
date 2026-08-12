@@ -24,15 +24,15 @@ O gerenciamento das atividades será realizado utilizando **Jira**, enquanto o *
 
 # 🛠️ Ferramentas Utilizadas
 
-| Ferramenta | Finalidade |
-|------------|------------|
-| Git | Controle de versão |
-| GitHub | Repositório, Issues, Pull Requests e Code Review |
-| GitHub Actions | Pipeline de CI/CD |
-| Jira | Gerenciamento das Sprints e Product Backlog |
-| Banco de Dados | Modelagem e Persistência |
-| SQL | Scripts do Banco de Dados |
-| Ferramenta de Prototipação | Protótipos das Telas |
+| Ferramenta                 | Finalidade                                       |
+| -------------------------- | ------------------------------------------------ |
+| Git                        | Controle de versão                               |
+| GitHub                     | Repositório, Issues, Pull Requests e Code Review |
+| GitHub Actions             | Pipeline de CI/CD                                |
+| Jira                       | Gerenciamento das Sprints e Product Backlog      |
+| Banco de Dados             | Modelagem e Persistência                         |
+| SQL                        | Scripts do Banco de Dados                        |
+| Ferramenta de Prototipação | Protótipos das Telas                             |
 
 ---
 
@@ -163,12 +163,12 @@ A pipeline de CD poderá ser utilizada para:
 
 # 👥 Integrantes da Equipe
 
-| Nome                           | Função |
-|------|----------------------------------------|
-| CARLOS EDUARDO CRISTOVÃO DE MELO | Desenvolvedor |
-| ANTONIA BRUNA SILVA DOS SANTOS | Desenvolvedora |
-| FRANCISCO NUNES LOPES DA SILVA | Desenvolvedor |
-| RODRIGO PEREIRA OLIVEIRA       | Desenvolvedor |
+| Nome                             | Função         |
+| -------------------------------- | -------------- |
+| CARLOS EDUARDO CRISTOVÃO DE MELO | Desenvolvedor  |
+| ANTONIA BRUNA SILVA DOS SANTOS   | Desenvolvedora |
+| FRANCISCO NUNES LOPES DA SILVA   | Desenvolvedor  |
+| RODRIGO PEREIRA OLIVEIRA         | Desenvolvedor  |
 
 ---
 

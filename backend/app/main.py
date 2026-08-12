@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI
 from app.database import init_db
 from app.routers.auth import router as auth_router
@@ -12,4 +14,7 @@ def health_check():
     return {"status": "ok"}
 
 
-init_db()
+@app.on_event("startup")
+def on_startup():
+    if os.getenv("TESTING") != "1":
+        init_db()
