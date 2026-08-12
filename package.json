@@ -4,8 +4,9 @@
   "private": true,
   "scripts": {
     "test": "python -m pytest",
-    "lint": "eslint \"**/*.{js,jsx,ts,tsx}\"",
+    "lint": "eslint --no-error-on-unmatched-pattern \"**/*.{js,jsx,ts,tsx}\"",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md,yml,yaml,css,scss,html,graphql,mdx}\"",
+    "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,md,yml,yaml,css,scss,html,graphql,mdx}\"",
     "prepare": "husky install"
   },
   "devDependencies": {

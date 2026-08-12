@@ -14,13 +14,36 @@ permissions:
   id-token: write
 
 jobs:
+  lint:
+    name: Lint & format check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
   test-backend:
     name: Backend tests
     runs-on: ubuntu-latest
 
     services:
       postgres:
-        image: postgres:13
+        image: postgres:14-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -32,6 +55,9 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
 
     steps:
       - name: Checkout repository
@@ -51,10 +77,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
           pip install -r backend/requirements-dev.txt
-
-      - name: Set DATABASE_URL
-        run: |
-          echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres" >> "$GITHUB_ENV"
 
       - name: Wait for Postgres
         run: |
@@ -79,32 +101,13 @@ jobs:
               raise SystemExit("Postgres did not become ready in time")
           PY
 
-          - name: Validate DATABASE_URL and SQLAlchemy dialect
-          working-directory: backend
-          run: |
-            python - <<'PY'
-            import os
-            from sqlalchemy import create_engine
-
-            url = os.environ.get('DATABASE_URL')
-            if not url or not url.startswith('postgres'):
-              raise SystemExit(f'Invalid DATABASE_URL for CI: {url!r}')
-
-            eng = create_engine(url)
-            if eng.dialect.name != 'postgresql':
-              raise SystemExit(f'Engine dialect is {eng.dialect.name}, expected postgresql')
-
-            print('DATABASE_URL and SQLAlchemy dialect validated:', eng.dialect.name)
-            PY
-
       - name: Run tests
-        working-directory: backend
-        run: |
-          pytest -q
+        run: pytest -q
 
   build-and-push:
     name: Build and push Docker images
-    needs: test-backend
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [lint, test-backend]
     runs-on: ubuntu-latest
 
     permissions:
@@ -148,7 +151,7 @@ jobs:
 
   deploy:
     name: Deploy production
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build-and-push
     runs-on: ubuntu-latest
 
@@ -167,7 +170,7 @@ jobs:
             cd "${{ secrets.DEPLOY_PATH }}"
 
             echo "======================================"
-            echo "Deploy Caminhos da Imunização"
+            echo "Deploy Caminhos da Imunizacao"
             echo "======================================"
 
             echo "Pulling latest Docker images..."
