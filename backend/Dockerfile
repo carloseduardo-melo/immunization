@@ -12,7 +12,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 # Instala as dependências do sistema necessárias para o psycopg2 (PostgreSQL) e compilação
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends gcc libpq-dev \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        gcc \
+        libpq-dev \
+        libffi-dev \
+        libssl-dev \
+        pkg-config \
+        rustc \
+        cargo \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -20,7 +28,7 @@ RUN apt-get update \
 COPY requirements.txt .
 
 # Instala as bibliotecas do Python sem armazenar cache desnecessário
-RUN pip install --upgrade pip \
+RUN pip install --upgrade pip setuptools wheel \
     && pip install --no-cache-dir -r requirements.txt
 
 # Copia o restante do código da aplicação para dentro do container
