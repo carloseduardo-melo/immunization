@@ -40,8 +40,8 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-          cache: "pip"
+          python-version: '3.11'
+          cache: 'pip'
           cache-dependency-path: |
             backend/requirements.txt
             backend/requirements-dev.txt
@@ -78,6 +78,24 @@ jobs:
           else:
               raise SystemExit("Postgres did not become ready in time")
           PY
+
+          - name: Validate DATABASE_URL and SQLAlchemy dialect
+          working-directory: backend
+          run: |
+            python - <<'PY'
+            import os
+            from sqlalchemy import create_engine
+
+            url = os.environ.get('DATABASE_URL')
+            if not url or not url.startswith('postgres'):
+              raise SystemExit(f'Invalid DATABASE_URL for CI: {url!r}')
+
+            eng = create_engine(url)
+            if eng.dialect.name != 'postgresql':
+              raise SystemExit(f'Engine dialect is {eng.dialect.name}, expected postgresql')
+
+            print('DATABASE_URL and SQLAlchemy dialect validated:', eng.dialect.name)
+            PY
 
       - name: Run tests
         working-directory: backend
