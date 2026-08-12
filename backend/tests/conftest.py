@@ -1,12 +1,14 @@
 import os
+# Ensure testing env is set before importing application modules
+os.environ["TESTING"] = "1"
+# Default to a local sqlite test DB only if DATABASE_URL is not already set
+os.environ.setdefault("DATABASE_URL", "sqlite:///./test.db")
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.database import Base, get_db
 from app.main import app
-
-os.environ["TESTING"] = "1"
-os.environ.setdefault("DATABASE_URL", "sqlite:///./test.db")
 
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 connect_args = {}

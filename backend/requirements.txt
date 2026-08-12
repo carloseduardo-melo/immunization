@@ -7,7 +7,7 @@ python-multipart==0.0.9
 pydantic[email]==2.11.10
 
 # Banco de Dados e ORM
-sqlalchemy==2.0.30
+sqlalchemy==2.0.36
 alembic==1.13.1
 psycopg2-binary==2.9.10
 
