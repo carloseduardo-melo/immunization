@@ -1,6 +1,6 @@
 #!/bin/sh
 
-echo "Running tests, lint and prettier before push..."
+echo "Running format, lint and tests before push..."
 npm run format
 npm run lint
-npm test
+python -m pytest
