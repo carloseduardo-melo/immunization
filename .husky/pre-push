@@ -1,0 +1,6 @@
+#!/bin/sh
+
+echo "Running tests, lint and prettier before push..."
+npm run format
+npm run lint
+npm test
