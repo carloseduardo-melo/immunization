@@ -13,7 +13,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     """Middleware: Exige Token JWT válido. Retorna 401 se ausente ou expirado."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Credenciais inválidas ou token expirado.",
+        detail="Token ausente ou inválido.",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
