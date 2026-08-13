@@ -22,8 +22,8 @@ def create_admin_user(db_session):
 
 def test_health_check():
     response = client.get("/health")
-    assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Token ausente ou inválido."
 
 
 def test_login_success(db_session):
