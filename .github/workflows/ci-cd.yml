@@ -14,6 +14,10 @@ permissions:
   id-token: write
 
 jobs:
+
+  # ============================================================
+  # LINT
+  # ============================================================
   lint:
     name: Lint & format check
     runs-on: ubuntu-latest
@@ -25,8 +29,8 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
@@ -37,6 +41,10 @@ jobs:
       - name: Lint
         run: npm run lint
 
+
+  # ============================================================
+  # BACKEND TESTS
+  # ============================================================
   test-backend:
     name: Backend tests
     runs-on: ubuntu-latest
@@ -66,8 +74,8 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-          cache: 'pip'
+          python-version: "3.11"
+          cache: "pip"
           cache-dependency-path: |
             backend/requirements.txt
             backend/requirements-dev.txt
@@ -104,10 +112,16 @@ jobs:
       - name: Run tests
         run: pytest -q
 
+
+  # ============================================================
+  # BUILD AND PUSH DOCKER IMAGES
+  # ============================================================
   build-and-push:
     name: Build and push Docker images
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [lint, test-backend]
+    needs:
+      - lint
+      - test-backend
     runs-on: ubuntu-latest
 
     permissions:
@@ -135,6 +149,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./backend
+          file: ./backend/Dockerfile
           push: true
           tags: |
             ghcr.io/${{ github.repository }}/caminhos-imunizacao-backend:latest
@@ -144,15 +159,21 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./frontend
+          file: ./frontend/Dockerfile
           push: true
           tags: |
             ghcr.io/${{ github.repository }}/caminhos-imunizacao-frontend:latest
             ghcr.io/${{ github.repository }}/caminhos-imunizacao-frontend:${{ github.sha }}
 
+
+  # ============================================================
+  # DEPLOY PRODUCTION
+  # ============================================================
   deploy:
     name: Deploy production
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: build-and-push
+    needs:
+      - build-and-push
     runs-on: ubuntu-latest
 
     steps:
@@ -164,6 +185,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.DEPLOY_PORT }}
           script_stop: true
+
           script: |
             set -e
 
@@ -173,16 +195,28 @@ jobs:
             echo "Deploy Caminhos da Imunizacao"
             echo "======================================"
 
+            echo "Checking Docker..."
+            docker --version
+            docker compose version
+
             echo "Pulling latest Docker images..."
-            docker compose pull
+            docker compose -f docker-compose.prod.yml pull
 
             echo "Starting containers..."
-            docker compose up -d --remove-orphans
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+
+            echo "Waiting for services..."
+            sleep 10
+
+            echo "Checking containers..."
+            docker compose -f docker-compose.prod.yml ps
+
+            echo "Checking backend health..."
+            curl --fail http://localhost:8000/health
 
             echo "Cleaning unused images..."
             docker image prune -f
 
-            echo "Checking containers..."
-            docker compose ps
-
+            echo "======================================"
             echo "Deploy completed successfully!"
+            echo "======================================"
