@@ -26,6 +26,8 @@ def listar_municipios(
         page = 1
     if page_size < 1:
         page_size = 10
+    if page_size > 100:
+        page_size = 100
 
     query = db.query(Municipio)
     if uf:

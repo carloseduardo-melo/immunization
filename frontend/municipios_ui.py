@@ -21,6 +21,7 @@ def _init_session_state():
         "municipios_busca": "",
         "municipio_editando": None,
         "municipio_confirmando_id": None,
+        "municipio_dialog_shown": False,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -56,7 +57,7 @@ def _render_formulario(token: str):
     titulo = "Editar município" if editando else "Novo município"
     st.subheader(titulo)
 
-    with st.form("form_municipio", clear_on_submit=False):
+    with st.form("form_municipio", clear_on_submit=True):
         id_ibge = st.text_input(
             "Código IBGE",
             value=editando["id_ibge"] if editando else "",
@@ -95,11 +96,11 @@ def _render_formulario(token: str):
         try:
             if editando:
                 atualizar_municipio(token, editando["id_ibge"], payload)
-                st.success("Município atualizado com sucesso.")
+                st.toast("Município atualizado com sucesso.")
             else:
                 payload["id_ibge"] = id_ibge.strip()
                 criar_municipio(token, payload)
-                st.success("Município cadastrado com sucesso.")
+                st.toast("Município cadastrado com sucesso.")
             st.session_state["municipio_editando"] = None
             st.rerun()
         except ApiError as exc:
@@ -146,6 +147,9 @@ def _render_lista(token: str, pode_editar: bool):
     itens = resultado["items"]
 
     if not itens:
+        if resultado["page"] > 1:
+            st.session_state["municipios_page"] = max(resultado["total_pages"], 1)
+            st.rerun()
         st.info("Nenhum município encontrado para os filtros selecionados.")
         return
 
@@ -170,6 +174,7 @@ def _render_lista(token: str, pode_editar: bool):
                     st.rerun()
                 if municipio["ativo"] and acao_col2.button("Desativar", key=f"desativar_{municipio['id_ibge']}"):
                     st.session_state["municipio_confirmando_id"] = municipio["id_ibge"]
+                    st.session_state["municipio_dialog_shown"] = False
                     st.rerun()
         else:
             linha[3].write("-")
@@ -189,7 +194,19 @@ def _render_lista(token: str, pode_editar: bool):
         st.session_state["municipios_page"] = page + 1
         st.rerun()
 
-    if pode_editar and st.session_state["municipio_confirmando_id"]:
+    if (
+        pode_editar
+        and st.session_state["municipio_confirmando_id"]
+        and not st.session_state["municipio_dialog_shown"]
+    ):
+        # Marca o diálogo como já exibido *antes* de chamá-lo: assim, se o
+        # usuário fechá-lo pelo X/ESC do próprio Streamlit (o que apenas
+        # provoca um rerun comum, sem limpar `municipio_confirmando_id`),
+        # este bloco não o reabre sozinho no próximo rerun. Os botões
+        # Cancelar/Desativar dentro do diálogo resetam essa flag para False
+        # quando o fluxo é reiniciado (e o clique em "Desativar" na linha da
+        # tabela também a reseta, para permitir abrir o diálogo de novo).
+        st.session_state["municipio_dialog_shown"] = True
         _render_confirmacao_desativacao(token, st.session_state["municipio_confirmando_id"])
 
 
@@ -197,7 +214,7 @@ def confirmar_desativacao(token: str, id_ibge: str) -> None:
     try:
         desativar_municipio(token, id_ibge)
         st.session_state["municipio_confirmando_id"] = None
-        st.success("Município desativado com sucesso.")
+        st.toast("Município desativado com sucesso.")
     except ApiError as exc:
         st.error(exc.message)
 
@@ -215,7 +232,9 @@ def _render_confirmacao_desativacao(token: str, id_ibge: str):
     col_cancelar, col_confirmar = st.columns(2)
     if col_cancelar.button("Cancelar"):
         st.session_state["municipio_confirmando_id"] = None
+        st.session_state["municipio_dialog_shown"] = False
         st.rerun()
     if col_confirmar.button("Desativar", type="primary"):
         confirmar_desativacao(token, id_ibge)
+        st.session_state["municipio_dialog_shown"] = False
         st.rerun()
