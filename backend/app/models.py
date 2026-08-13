@@ -1,8 +1,8 @@
 import uuid
 
 from sqlalchemy import (
-    Column, String, Boolean, Integer, SmallInteger, Date,
-    ForeignKey, CheckConstraint, Index, text, TIMESTAMP, JSON
+    Column, String, Boolean, Integer, SmallInteger, Date, DateTime,
+    ForeignKey, CheckConstraint, Index, text, TIMESTAMP, JSON, func
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB as PG_JSONB
 from sqlalchemy.orm import declarative_base, relationship
@@ -53,7 +53,11 @@ class Municipio(Base):
     id_ibge = Column(String(7), primary_key=True)
     nome = Column(String(150), nullable=False)
     uf = Column(String(2), nullable=False)
+    regiao_saude = Column(String(150), nullable=True)
+    polo = Column(Boolean, nullable=False, server_default=text("false"))
     ativo = Column(Boolean, nullable=False, server_default=text("true"))
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
 
     # Relacionamentos
     alertas = relationship("AlertaCompletude", back_populates="municipio")
