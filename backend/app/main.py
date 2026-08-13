@@ -6,6 +6,7 @@ from jose import JWTError, jwt
 
 from app.database import init_db
 from app.routers.auth import router as auth_router
+from app.routers.municipios import router as municipios_router
 from app.security import ALGORITHM, SECRET_KEY
 
 app = FastAPI(title="Imunização API", version="1.0.0")
@@ -46,6 +47,7 @@ async def auth_middleware(request: Request, call_next):
 
 
 app.include_router(auth_router)
+app.include_router(municipios_router)
 
 
 @app.get("/health")
