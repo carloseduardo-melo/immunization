@@ -84,3 +84,28 @@ def test_validar_formulario_edicao_ignora_id_ibge():
 def test_validar_formulario_valido():
     erro = municipios_ui._validar_formulario("2304400", "Fortaleza", "CE", editando=None)
     assert erro is None
+
+
+import streamlit as st
+
+
+@patch("municipios_ui.desativar_municipio")
+def test_confirmar_desativacao_chama_api_e_limpa_estado(mock_desativar):
+    st.session_state["municipio_confirmando_id"] = "2304400"
+
+    municipios_ui.confirmar_desativacao("token123", "2304400")
+
+    mock_desativar.assert_called_once_with("token123", "2304400")
+    assert st.session_state["municipio_confirmando_id"] is None
+
+
+@patch("municipios_ui.desativar_municipio")
+def test_confirmar_desativacao_erro_api_nao_limpa_estado(mock_desativar):
+    from api_client import ApiError
+
+    mock_desativar.side_effect = ApiError("Falha ao desativar.")
+    st.session_state["municipio_confirmando_id"] = "2304400"
+
+    municipios_ui.confirmar_desativacao("token123", "2304400")
+
+    assert st.session_state["municipio_confirmando_id"] == "2304400"

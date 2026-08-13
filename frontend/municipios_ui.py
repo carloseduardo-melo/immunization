@@ -2,7 +2,7 @@ from typing import Optional
 
 import streamlit as st
 
-from api_client import ApiError, atualizar_municipio, criar_municipio, listar_municipios
+from api_client import ApiError, atualizar_municipio, criar_municipio, desativar_municipio, listar_municipios
 
 UFS = [
     "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS",
@@ -187,4 +187,35 @@ def _render_lista(token: str, pode_editar: bool):
     col_info.write(f"Página {page} de {total_pages}")
     if col_next.button("Próxima", disabled=page >= total_pages):
         st.session_state["municipios_page"] = page + 1
+        st.rerun()
+
+    if pode_editar and st.session_state["municipio_confirmando_id"]:
+        _render_confirmacao_desativacao(token, st.session_state["municipio_confirmando_id"])
+
+
+def confirmar_desativacao(token: str, id_ibge: str) -> None:
+    try:
+        desativar_municipio(token, id_ibge)
+        st.session_state["municipio_confirmando_id"] = None
+        st.success("Município desativado com sucesso.")
+    except ApiError as exc:
+        st.error(exc.message)
+
+
+# Compatibilidade: `st.dialog` só existe a partir do Streamlit 1.37;
+# a versão fixada em requirements.txt (1.36.0) expõe apenas `st.experimental_dialog`.
+_dialog = getattr(st, "dialog", None) or st.experimental_dialog
+
+
+@_dialog("Desativar município")
+def _render_confirmacao_desativacao(token: str, id_ibge: str):
+    st.write("Deseja realmente desativar este município?")
+    st.caption("O município não será excluído do banco de dados, apenas ficará inativo.")
+
+    col_cancelar, col_confirmar = st.columns(2)
+    if col_cancelar.button("Cancelar"):
+        st.session_state["municipio_confirmando_id"] = None
+        st.rerun()
+    if col_confirmar.button("Desativar", type="primary"):
+        confirmar_desativacao(token, id_ibge)
         st.rerun()
