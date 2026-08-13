@@ -1,5 +1,5 @@
 import pytest
-from app.models import RegistroVacinacao, UsuarioAdmin, AlertaCompletude
+from app.models import RegistroVacinacao, UsuarioAdmin, AlertaCompletude, Municipio
 from datetime import date
 from sqlalchemy import text
 
@@ -19,3 +19,10 @@ def test_usuario_admin_role_check():
 def test_alerta_completude_constraints():
     assert 'chk_mes_valido' in {c.name for c in AlertaCompletude.__table__.constraints if hasattr(c, 'name')}
     assert 'chk_alerta_status' in {c.name for c in AlertaCompletude.__table__.constraints if hasattr(c, 'name')}
+
+
+def test_municipio_new_fields_exist():
+    columns = {c.name for c in Municipio.__table__.columns}
+    assert {"regiao_saude", "polo", "created_at", "updated_at"}.issubset(columns)
+    assert Municipio.__table__.c.polo.nullable is False
+    assert Municipio.__table__.c.regiao_saude.nullable is True

@@ -2,6 +2,8 @@ import os
 import streamlit as st
 import requests
 
+from municipios_ui import render_municipios_section
+
 
 # ============================================================
 # CONFIGURAÇÕES
@@ -735,3 +737,11 @@ else:
             "O seu acesso está restrito ao município "
             f"IBGE: {st.session_state['municipio_id']}"
         )
+
+    # --------------------------------------------------------
+    # MUNICÍPIOS
+    # --------------------------------------------------------
+
+    st.divider()
+
+    render_municipios_section()
