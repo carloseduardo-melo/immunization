@@ -1,7 +1,7 @@
 from math import ceil
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -52,3 +52,65 @@ def listar_municipios(
         page_size=page_size,
         total_pages=total_pages,
     )
+
+
+@router.post("", response_model=MunicipioOut, status_code=status.HTTP_201_CREATED)
+def criar_municipio(
+    payload: MunicipioCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_admin_and_estadual),
+):
+    existente = db.query(Municipio).filter(Municipio.id_ibge == payload.id_ibge).first()
+    if existente:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Já existe um município cadastrado com este código IBGE.",
+        )
+
+    municipio = Municipio(
+        id_ibge=payload.id_ibge,
+        nome=payload.nome,
+        uf=payload.uf,
+        regiao_saude=payload.regiao_saude,
+        polo=payload.polo,
+    )
+    db.add(municipio)
+    db.commit()
+    db.refresh(municipio)
+    return municipio
+
+
+@router.put("/{id_ibge}", response_model=MunicipioOut)
+def atualizar_municipio(
+    id_ibge: str,
+    payload: MunicipioUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_admin_and_estadual),
+):
+    municipio = db.query(Municipio).filter(Municipio.id_ibge == id_ibge).first()
+    if not municipio:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Município não encontrado.")
+
+    municipio.nome = payload.nome
+    municipio.uf = payload.uf
+    municipio.regiao_saude = payload.regiao_saude
+    municipio.polo = payload.polo
+    db.commit()
+    db.refresh(municipio)
+    return municipio
+
+
+@router.delete("/{id_ibge}", response_model=MunicipioOut)
+def desativar_municipio(
+    id_ibge: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_admin_and_estadual),
+):
+    municipio = db.query(Municipio).filter(Municipio.id_ibge == id_ibge).first()
+    if not municipio:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Município não encontrado.")
+
+    municipio.ativo = False
+    db.commit()
+    db.refresh(municipio)
+    return municipio
