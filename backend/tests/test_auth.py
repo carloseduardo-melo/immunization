@@ -23,8 +23,19 @@ def create_admin_user(db_session):
 
 def test_health_check():
     response = client.get("/health")
-    assert response.status_code == 401
-    assert response.json()["detail"] == "Token ausente ou inválido."
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+def test_default_admin_is_created_when_db_is_empty(monkeypatch, db_session):
+    monkeypatch.setenv("DEFAULT_ADMIN_EMAIL", "root@imunizacao.local")
+    monkeypatch.setenv("DEFAULT_ADMIN_PASSWORD", "Admin@123")
+
+    ensure_default_admin_user()
+
+    user = db_session.query(UsuarioAdmin).filter(UsuarioAdmin.email == "root@imunizacao.local").one()
+    assert user.role == "ADMIN"
+    assert verify_password("Admin@123", user.senha_hash) is True
 
 
 def test_default_admin_is_created_when_db_is_empty(monkeypatch, db_session):

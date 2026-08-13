@@ -15,7 +15,7 @@ app = FastAPI(title="Imunização API", version="1.0.0")
 
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
-    if request.url.path == "/auth/login":
+    if request.url.path in {"/auth/login", "/health"}:
         return await call_next(request)
 
     auth_header = request.headers.get("Authorization")
