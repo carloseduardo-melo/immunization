@@ -53,3 +53,10 @@ postgres_data/
 .idea/
 .DS_Store
 *.swp
+
+
+# ==========================================
+# Arquivos de Cobertura de Testes
+# ==========================================
+.coverage
+.coverage.*
