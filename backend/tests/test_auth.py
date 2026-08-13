@@ -1,4 +1,7 @@
+import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
+from app.dependencies import require_role, validate_municipio_scope
 from app.main import app
 from app.models import UsuarioAdmin
 from app.security import get_password_hash
@@ -77,3 +80,43 @@ def test_protected_route_accepts_valid_token(db_session):
     response = client.get("/health", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_role_permission_checks():
+    admin = UsuarioAdmin(email="admin@example.com", senha_hash="hash", role="ADMIN")
+    municipal = UsuarioAdmin(
+        email="municipal@example.com",
+        senha_hash="hash",
+        role="GESTOR_MUNICIPAL",
+        municipio_alocado_id="2304400",
+    )
+
+    assert require_role(["ADMIN"])(current_user=admin) == admin
+
+    with pytest.raises(HTTPException) as exc:
+        require_role(["ADMIN"])(current_user=municipal)
+    assert exc.value.status_code == 403
+
+
+def test_municipal_scope_restricts_to_assigned_municipality():
+    municipal = UsuarioAdmin(
+        email="municipal@example.com",
+        senha_hash="hash",
+        role="GESTOR_MUNICIPAL",
+        municipio_alocado_id="2304400",
+    )
+    estadual = UsuarioAdmin(
+        email="estadual@example.com",
+        senha_hash="hash",
+        role="GESTOR_ESTADUAL",
+    )
+    admin = UsuarioAdmin(email="admin@example.com", senha_hash="hash", role="ADMIN")
+
+    assert validate_municipio_scope(municipal, "2304400") == municipal
+
+    with pytest.raises(HTTPException) as exc:
+        validate_municipio_scope(municipal, "2300100")
+    assert exc.value.status_code == 403
+
+    assert validate_municipio_scope(estadual, "2300100") == estadual
+    assert validate_municipio_scope(admin, "2300100") == admin
