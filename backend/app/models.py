@@ -56,8 +56,8 @@ class Municipio(Base):
     regiao_saude = Column(String(150), nullable=True)
     polo = Column(Boolean, nullable=False, server_default=text("false"))
     ativo = Column(Boolean, nullable=False, server_default=text("true"))
-    created_at = Column(DateTime, nullable=False, server_default=func.now())
-    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"), default=func.now())
+    updated_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"), default=func.now(), onupdate=func.now())
 
     # Relacionamentos
     alertas = relationship("AlertaCompletude", back_populates="municipio")
@@ -129,7 +129,7 @@ class LogAuditoria(Base):
     usuario_id = Column(GUID(), ForeignKey("usuarios_admin.id"), nullable=False)
     valores_antigos = Column(JSONB, nullable=True)
     valores_novos = Column(JSONB, nullable=True)
-    criado_em = Column(TIMESTAMP, nullable=False, server_default=text("now()"))
+    criado_em = Column(TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
 
     __table_args__ = (
         CheckConstraint("acao IN ('UPDATE', 'DELETE')", name="chk_log_acao"),
@@ -146,7 +146,7 @@ class AlertaCompletude(Base):
     municipio_id = Column(String(7), ForeignKey("municipios.id_ibge"), nullable=True)
     total_observado = Column(Integer, nullable=False)
     status = Column(String(20), nullable=False, server_default=text("'ABERTO'"))
-    criado_em = Column(TIMESTAMP, nullable=False, server_default=text("now()"))
+    criado_em = Column(TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
 
     municipio = relationship("Municipio", back_populates="alertas")
 

@@ -4,7 +4,8 @@ from fastapi.testclient import TestClient
 from app.dependencies import require_role, validate_municipio_scope
 from app.main import app
 from app.models import UsuarioAdmin
-from app.security import get_password_hash
+from app.security import get_password_hash, verify_password
+from app.database import ensure_default_admin_user
 
 client = TestClient(app)
 
@@ -24,6 +25,17 @@ def test_health_check():
     response = client.get("/health")
     assert response.status_code == 401
     assert response.json()["detail"] == "Token ausente ou inválido."
+
+
+def test_default_admin_is_created_when_db_is_empty(monkeypatch, db_session):
+    monkeypatch.setenv("DEFAULT_ADMIN_EMAIL", "root@imunizacao.local")
+    monkeypatch.setenv("DEFAULT_ADMIN_PASSWORD", "Admin@123")
+
+    ensure_default_admin_user()
+
+    user = db_session.query(UsuarioAdmin).filter(UsuarioAdmin.email == "root@imunizacao.local").one()
+    assert user.role == "ADMIN"
+    assert verify_password("Admin@123", user.senha_hash) is True
 
 
 def test_login_success(db_session):
