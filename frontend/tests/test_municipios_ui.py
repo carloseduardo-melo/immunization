@@ -54,3 +54,33 @@ def test_lista_municipios_estado_vazio(mock_listar):
 
     assert not at.exception
     assert any("Nenhum município encontrado" in info.value for info in at.info)
+
+
+import municipios_ui
+
+
+def test_validar_formulario_id_ibge_invalido():
+    erro = municipios_ui._validar_formulario("123", "Fortaleza", "CE", editando=None)
+    assert erro is not None
+    assert "IBGE" in erro
+
+
+def test_validar_formulario_nome_vazio():
+    erro = municipios_ui._validar_formulario("2304400", "   ", "CE", editando=None)
+    assert erro is not None
+
+
+def test_validar_formulario_uf_invalida():
+    erro = municipios_ui._validar_formulario("2304400", "Fortaleza", "C", editando=None)
+    assert erro is not None
+
+
+def test_validar_formulario_edicao_ignora_id_ibge():
+    editando = {"id_ibge": "2304400"}
+    erro = municipios_ui._validar_formulario("", "Fortaleza", "CE", editando=editando)
+    assert erro is None
+
+
+def test_validar_formulario_valido():
+    erro = municipios_ui._validar_formulario("2304400", "Fortaleza", "CE", editando=None)
+    assert erro is None

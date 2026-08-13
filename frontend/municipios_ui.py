@@ -1,6 +1,8 @@
+from typing import Optional
+
 import streamlit as st
 
-from api_client import ApiError, listar_municipios
+from api_client import ApiError, atualizar_municipio, criar_municipio, listar_municipios
 
 UFS = [
     "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS",
@@ -31,7 +33,77 @@ def render_municipios_section():
     pode_editar = st.session_state["role"] in ("ADMIN", "GESTOR_ESTADUAL")
 
     st.title("Municípios")
+
+    if pode_editar:
+        _render_formulario(token)
+        st.divider()
+
     _render_lista(token, pode_editar)
+
+
+def _validar_formulario(id_ibge: str, nome: str, uf: str, editando: Optional[dict]) -> Optional[str]:
+    if not editando and (not id_ibge or not id_ibge.isdigit() or len(id_ibge) != 7):
+        return "Informe um código IBGE válido com 7 dígitos."
+    if not nome or not nome.strip():
+        return "Informe o nome do município."
+    if not uf or len(uf.strip()) != 2 or not uf.strip().isalpha():
+        return "Informe a UF com exatamente 2 letras."
+    return None
+
+
+def _render_formulario(token: str):
+    editando = st.session_state["municipio_editando"]
+    titulo = "Editar município" if editando else "Novo município"
+    st.subheader(titulo)
+
+    with st.form("form_municipio", clear_on_submit=False):
+        id_ibge = st.text_input(
+            "Código IBGE",
+            value=editando["id_ibge"] if editando else "",
+            disabled=bool(editando),
+            max_chars=7,
+        )
+        nome = st.text_input("Nome do município", value=editando["nome"] if editando else "")
+        uf = st.text_input("UF", value=editando["uf"] if editando else "", max_chars=2)
+        regiao_saude = st.text_input(
+            "Região de saúde",
+            value=(editando.get("regiao_saude") or "") if editando else "",
+        )
+        polo = st.checkbox("Município-polo", value=editando["polo"] if editando else False)
+
+        col_salvar, col_cancelar = st.columns(2)
+        salvar = col_salvar.form_submit_button("Salvar")
+        cancelar = col_cancelar.form_submit_button("Cancelar edição", disabled=not editando)
+
+    if cancelar:
+        st.session_state["municipio_editando"] = None
+        st.rerun()
+
+    if salvar:
+        erro = _validar_formulario(id_ibge, nome, uf, editando)
+        if erro:
+            st.error(erro)
+            return
+
+        payload = {
+            "nome": nome.strip(),
+            "uf": uf.strip().upper(),
+            "regiao_saude": regiao_saude.strip() or None,
+            "polo": polo,
+        }
+
+        try:
+            if editando:
+                atualizar_municipio(token, editando["id_ibge"], payload)
+                st.success("Município atualizado com sucesso.")
+            else:
+                payload["id_ibge"] = id_ibge.strip()
+                criar_municipio(token, payload)
+                st.success("Município cadastrado com sucesso.")
+            st.session_state["municipio_editando"] = None
+            st.rerun()
+        except ApiError as exc:
+            st.error(exc.message)
 
 
 def _render_lista(token: str, pode_editar: bool):
