@@ -51,6 +51,24 @@ def test_login_success(db_session):
     assert "access_token" in data
 
 
+def test_login_accepts_local_domain_email(db_session):
+    user = UsuarioAdmin(
+        email="admin@imunizacao.local",
+        senha_hash=get_password_hash("Admin@123"),
+        role="ADMIN",
+    )
+    db_session.add(user)
+    db_session.commit()
+
+    response = client.post(
+        "/auth/login",
+        json={"email": "admin@imunizacao.local", "password": "Admin@123"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["role"] == "ADMIN"
+
+
 def test_login_wrong_password(db_session):
     create_admin_user(db_session)
     response = client.post(

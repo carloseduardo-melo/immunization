@@ -1,12 +1,20 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, field_validator
 
 
 class LoginData(BaseModel):
-    email: EmailStr
+    email: str
     password: str
+
+    @field_validator("email")
+    @classmethod
+    def email_valido(cls, v: str) -> str:
+        value = (v or "").strip()
+        if not value:
+            raise ValueError("O e-mail é obrigatório.")
+        return value.lower()
 
 
 class TokenResponse(BaseModel):
