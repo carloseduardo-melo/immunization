@@ -60,3 +60,8 @@ postgres_data/
 # ==========================================
 .coverage
 .coverage.*
+
+# ==========================================
+# Workspace local de execução de planos (Claude Code / superpowers)
+# ==========================================
+.superpowers/
