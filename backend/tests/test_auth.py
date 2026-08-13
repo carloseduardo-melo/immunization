@@ -22,8 +22,8 @@ def create_admin_user(db_session):
 
 def test_health_check():
     response = client.get("/health")
-    assert response.status_code == 401
-    assert response.json()["detail"] == "Token ausente ou inválido."
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
 
 
 def test_login_success(db_session):
@@ -60,11 +60,11 @@ def test_login_unknown_user():
 
 def test_protected_route_requires_valid_token(db_session):
     create_admin_user(db_session)
-    response = client.get("/health")
+    response = client.get("/municipios")
     assert response.status_code == 401
     assert response.json()["detail"] == "Token ausente ou inválido."
 
-    response = client.get("/health", headers={"Authorization": "Bearer token_invalido"})
+    response = client.get("/municipios", headers={"Authorization": "Bearer token_invalido"})
     assert response.status_code == 401
     assert response.json()["detail"] == "Token ausente ou inválido."
 
