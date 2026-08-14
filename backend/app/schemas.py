@@ -30,6 +30,10 @@ class MeResponse(BaseModel):
     municipio_alocado_id: Optional[str] = None
 
 
+# ==========================================
+# MUNICÍPIOS
+# ==========================================
+
 class MunicipioBase(BaseModel):
     nome: str
     uf: str
@@ -79,6 +83,50 @@ class MunicipioOut(MunicipioBase):
 
 class PaginatedMunicipios(BaseModel):
     items: list[MunicipioOut]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+# ==========================================
+# VACINAS (RF04 & RF05)
+# ==========================================
+
+class VacinaBase(BaseModel):
+    nome: str
+    alta_complexidade: bool = False
+
+    @field_validator("nome")
+    @classmethod
+    def nome_nao_vazio(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("O nome da vacina é obrigatório.")
+        return v.strip()
+
+
+class VacinaCreate(VacinaBase):
+    pass
+
+
+class VacinaUpdate(VacinaBase):
+    pass
+
+
+class VacinaOut(VacinaBase):
+    id: int
+    ativo: bool
+    # Se o seu modelo Vacina no banco de dados tiver created_at/updated_at, 
+    # você pode descomentar as linhas abaixo para seguir o mesmo padrão de MunicipioOut.
+    # created_at: datetime
+    # updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PaginatedVacinas(BaseModel):
+    items: list[VacinaOut]
     total: int
     page: int
     page_size: int
