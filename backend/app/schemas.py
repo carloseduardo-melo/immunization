@@ -152,6 +152,42 @@ class RegistroVacinacaoOut(BaseModel):
         from_attributes = True
 
 
+class RegistroVacinacaoCreate(BaseModel):
+    data_vacinacao: date
+    municipio_vacina_id: str
+    municipio_residencia_id: Optional[str] = None
+    vacina_id: Optional[int] = None
+    idade: Optional[int] = None
+    quantidade: int = 1
+
+    @field_validator("municipio_vacina_id")
+    @classmethod
+    def municipio_vacina_valido(cls, v: str) -> str:
+        v_clean = (v or "").strip()
+        if not v_clean or not v_clean.isdigit() or len(v_clean) != 7:
+            raise ValueError("O código IBGE do município de aplicação é obrigatório e deve conter exatamente 7 dígitos.")
+        return v_clean
+
+    @field_validator("municipio_residencia_id")
+    @classmethod
+    def municipio_residencia_valido(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        v_clean = v.strip()
+        if not v_clean:
+            return None
+        if not v_clean.isdigit() or len(v_clean) != 7:
+            raise ValueError("O código IBGE do município de residência deve conter exatamente 7 dígitos.")
+        return v_clean
+
+    @field_validator("quantidade")
+    @classmethod
+    def quantidade_positiva(cls, v: int) -> int:
+        if v <= 0:
+            raise ValueError("A quantidade deve ser um valor positivo maior que zero.")
+        return v
+
+
 class PaginatedRegistros(BaseModel):
     items: list[RegistroVacinacaoOut]
     total: int
