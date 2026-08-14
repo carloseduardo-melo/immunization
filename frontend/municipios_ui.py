@@ -1,16 +1,26 @@
 import random
-from typing import Optional
+from typing import Any, Optional
 
 import streamlit as st
 
-# Mantém as importações originais da sua API
-from api_client import ApiError, atualizar_municipio, criar_municipio, desativar_municipio, listar_municipios
+from api_client import (
+    ApiError,
+    atualizar_municipio,
+    atualizar_vacina,
+    criar_municipio,
+    criar_vacina,
+    desativar_municipio,
+    desativar_vacina,
+    listar_municipios,
+    listar_vacinas,
+)
 
 _BADGE_TONES = {
-    "success": ("#dcfce7", "#15803d"), # Verde (Polo)
-    "neutral": ("#f4f4f5", "#52525b"), # Cinza (Padrão)
-    "alta": ("#f3e8ff", "#7e22ce"),    # Roxo (Alta complexidade)
+    "success": ("#dcfce7", "#15803d"),  # Verde (Polo)
+    "neutral": ("#f4f4f5", "#52525b"),  # Cinza (Padrão / Inativo)
+    "alta": ("#f3e8ff", "#7e22ce"),     # Roxo (Alta complexidade)
 }
+
 
 def _badge_html(label: str, tone: str) -> str:
     bg, color = _BADGE_TONES[tone]
@@ -18,6 +28,7 @@ def _badge_html(label: str, tone: str) -> str:
         f'<span style="display:inline-block;padding:2px 10px;border-radius:999px;'
         f'font-size:12px;font-weight:500;background:{bg};color:{color};">{label}</span>'
     )
+
 
 def _inject_styles():
     st.markdown(
@@ -43,8 +54,7 @@ def _inject_styles():
             margin-bottom: 24px;
         }
         
-        /* --- CORES E BOTÕES (FORÇANDO O TEMA DO PROTÓTIPO) --- */
-        /* Botões Primários (Salvar, Exportar PDF) */
+        /* --- CORES E BOTÕES --- */
         button[kind="primary"] {
             background-color: #5b5bf6 !important;
             border-color: #5b5bf6 !important;
@@ -58,7 +68,6 @@ def _inject_styles():
             color: #ffffff !important;
         }
         
-        /* Botões Secundários (CSV, Editar, Desativar, Paginação) */
         button[kind="secondary"] {
             background-color: #ffffff !important;
             border: 1px solid #e4e4e7 !important;
@@ -74,7 +83,7 @@ def _inject_styles():
             color: #18181b !important;
         }
 
-        /* --- INPUTS E FORMULÁRIOS (REMOVENDO FUNDO CINZA) --- */
+        /* --- INPUTS E FORMULÁRIOS --- */
         [data-baseweb="input"], 
         [data-baseweb="select"] > div {
             background-color: #ffffff !important;
@@ -99,13 +108,12 @@ def _inject_styles():
             color: #3f3f46 !important;
         }
 
-        /* --- CONTAINERS (BORDAS MAIS SUAVES) --- */
+        /* Containers de card */
         [data-testid="stVerticalBlockBorderWrapper"] {
             border-radius: 8px !important;
             border-color: #e4e4e7 !important;
         }
         
-        /* Divisores customizados para a tabela */
         hr {
             margin: 0.75rem 0 !important;
             border-color: #f4f4f5 !important;
@@ -115,31 +123,36 @@ def _inject_styles():
         unsafe_allow_html=True,
     )
 
+
 def _init_session_state():
     defaults = {
-        "token": "token_dummy", # Ajuste conforme sua auth
-        "role": "ADMIN",        # Ajuste conforme sua auth
+        "token": "token_dummy",
+        "role": "ADMIN",
+        # Municípios
         "municipios_page": 1,
         "municipios_busca": "",
         "municipio_editando": None,
         "municipio_confirmando_id": None,
         "municipio_dialog_shown": False,
+        # Vacinas (RF04 & RF05)
         "vacinas_page": 1,
         "vacinas_busca": "",
-        "vacinas_mock": [
-            {"id": 1, "nome": "Hepatite A e B", "complexidade": "Padrão", "ativo": True},
-            {"id": 2, "nome": "Soro antielapídico", "complexidade": "Alta", "ativo": True}
-        ]
+        "vacina_editando": None,
+        "vacina_confirmando_id": None,
+        "vacina_dialog_shown": False,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
 
+
 def render_municipios_section():
     _init_session_state()
     _inject_styles()
-    token = st.session_state.get("token")
-    pode_editar = st.session_state.get("role") in ("ADMIN", "GESTOR_ESTADUAL")
+    token = st.session_state.get("token", "")
+    role = st.session_state.get("role", "")
+    pode_editar = role in ("ADMIN", "GESTOR_ESTADUAL")
+    is_admin = role == "ADMIN"
 
     # Cabeçalho da Página
     col_title, col_space, col_csv, col_pdf = st.columns([6, 1, 1.5, 1.5])
@@ -151,23 +164,22 @@ def render_municipios_section():
     with col_pdf:
         st.button("Exportar PDF", type="primary", use_container_width=True)
 
-    # Seções Principais
+    # --- SEÇÃO DE MUNICÍPIOS ---
     if pode_editar:
-        _render_formulario(token)
-    
-    _render_lista(token, pode_editar)
+        _render_formulario_municipio(token)
+    _render_lista_municipios(token, pode_editar)
 
+    # --- SEÇÃO DE VACINAS (RF04 & RF05) ---
     if pode_editar:
-        _render_formulario_vacina()
-    
-    _render_lista_vacinas(pode_editar)
+        _render_formulario_vacina(token, is_admin)
+    _render_lista_vacinas(token, pode_editar)
 
-def _validar_formulario(nome: str) -> Optional[str]:
-    if not nome or not nome.strip():
-        return "Informe o nome do município."
-    return None
 
-def _render_formulario(token: str):
+# ==========================================
+# MUNICÍPIOS
+# ==========================================
+
+def _render_formulario_municipio(token: str):
     editando = st.session_state["municipio_editando"]
     titulo = "Editar município" if editando else "Novo município"
 
@@ -175,7 +187,7 @@ def _render_formulario(token: str):
         st.markdown(f'<div class="municipios-card-title">{titulo}</div>', unsafe_allow_html=True)
 
         with st.form("form_municipio", border=False, clear_on_submit=True):
-            col_nome, col_regiao, col_polo, col_salvar = st.columns([4.5, 3.5, 2, 2])
+            col_nome, col_regiao, col_polo, col_salvar, col_cancel = st.columns([4, 3, 2, 1.5, 1.5] if editando else [4.5, 3.5, 2, 2, 0.1])
             
             with col_nome:
                 nome = st.text_input("Nome", value=editando["nome"] if editando else "", placeholder="Nome do município", label_visibility="collapsed")
@@ -191,11 +203,16 @@ def _render_formulario(token: str):
             
             with col_salvar:
                 salvar = st.form_submit_button("Salvar", type="primary", use_container_width=True)
+                
+            if editando:
+                with col_cancel:
+                    if st.form_submit_button("Cancelar", use_container_width=True):
+                        st.session_state["municipio_editando"] = None
+                        st.rerun()
 
         if salvar:
-            erro = _validar_formulario(nome)
-            if erro:
-                st.error(erro)
+            if not nome or not nome.strip():
+                st.error("Informe o nome do município.")
                 return
 
             payload = {
@@ -218,17 +235,19 @@ def _render_formulario(token: str):
             except ApiError as exc:
                 st.error(exc.message)
 
-def _render_lista(token: str, pode_editar: bool):
+
+def _render_lista_municipios(token: str, pode_editar: bool):
     with st.container(border=True):
         col_titulo, col_space, col_busca = st.columns([3, 4, 3])
         col_titulo.markdown('<div class="municipios-card-title" style="margin-top: 6px;">Municípios cadastrados</div>', unsafe_allow_html=True)
         
         with col_busca:
-            busca = st.text_input("Buscar", value=st.session_state["municipios_busca"], placeholder="Buscar município", label_visibility="collapsed")
+            busca = st.text_input("Buscar", value=st.session_state["municipios_busca"], placeholder="Buscar município", label_visibility="collapsed", key="input_busca_mun")
 
         if busca != st.session_state["municipios_busca"]:
             st.session_state["municipios_busca"] = busca
             st.session_state["municipios_page"] = 1
+            st.rerun()
 
         try:
             with st.spinner("Carregando municípios..."):
@@ -244,13 +263,12 @@ def _render_lista(token: str, pode_editar: bool):
             st.error(exc.message)
             return
 
-        itens = resultado["items"]
+        itens = resultado.get("items", [])
 
         if not itens:
             st.info("Nenhum município encontrado.")
             return
 
-        # Cabeçalho da Tabela
         st.markdown("<hr>", unsafe_allow_html=True)
         h1, h2, h3, h4 = st.columns([3.5, 3.5, 1.5, 2])
         h1.caption("**Município**")
@@ -259,17 +277,16 @@ def _render_lista(token: str, pode_editar: bool):
         h4.caption("**Ações**")
         st.markdown("<hr>", unsafe_allow_html=True)
 
-        # Linhas da Tabela
         for municipio in itens:
             linha = st.columns([3.5, 3.5, 1.5, 2])
             nome_html = municipio["nome"]
-            if not municipio["ativo"]:
+            if not municipio.get("ativo", True):
                 nome_html += " " + _badge_html("Inativo", "neutral")
             
             linha[0].markdown(f"<span style='font-size:13px;color:#3f3f46;'>{nome_html}</span>", unsafe_allow_html=True)
             linha[1].markdown(f"<span style='font-size:13px;color:#71717a;'>{municipio.get('regiao_saude') or '-'}</span>", unsafe_allow_html=True)
             
-            tipo_badge = _badge_html("Polo", "success") if municipio["polo"] else _badge_html("Padrão", "neutral")
+            tipo_badge = _badge_html("Polo", "success") if municipio.get("polo") else _badge_html("Padrão", "neutral")
             linha[2].markdown(tipo_badge, unsafe_allow_html=True)
 
             if pode_editar:
@@ -278,7 +295,7 @@ def _render_lista(token: str, pode_editar: bool):
                     if acao_col1.button("Editar", key=f"editar_{municipio['id_ibge']}", use_container_width=True):
                         st.session_state["municipio_editando"] = municipio
                         st.rerun()
-                    if municipio["ativo"] and acao_col2.button("Desativar", key=f"desativar_{municipio['id_ibge']}", use_container_width=True):
+                    if municipio.get("ativo", True) and acao_col2.button("Desativar", key=f"desativar_{municipio['id_ibge']}", use_container_width=True):
                         st.session_state["municipio_confirmando_id"] = municipio["id_ibge"]
                         st.session_state["municipio_dialog_shown"] = False
                         st.rerun()
@@ -287,18 +304,17 @@ def _render_lista(token: str, pode_editar: bool):
             
             st.markdown("<hr>", unsafe_allow_html=True)
 
-        # Paginação
-        total = resultado["total"]
-        page = resultado["page"]
-        total_pages = max(resultado["total_pages"], 1)
+        total = resultado.get("total", len(itens))
+        page = resultado.get("page", 1)
+        total_pages = max(resultado.get("total_pages", 1), 1)
 
         c_info, c_space, c_prev, c_next = st.columns([6, 3, 0.5, 0.5])
         c_info.caption(f"Mostrando {len(itens)} de {total} municípios")
         
-        if c_prev.button("\<", disabled=page <= 1, key="prev_mun", use_container_width=True):
+        if c_prev.button("<", disabled=page <= 1, key="prev_mun", use_container_width=True):
             st.session_state["municipios_page"] = page - 1
             st.rerun()
-        if c_next.button("\>", disabled=page >= total_pages, key="next_mun", use_container_width=True):
+        if c_next.button(">", disabled=page >= total_pages, key="next_mun", use_container_width=True):
             st.session_state["municipios_page"] = page + 1
             st.rerun()
 
@@ -306,17 +322,163 @@ def _render_lista(token: str, pode_editar: bool):
             st.session_state["municipio_dialog_shown"] = True
             _render_confirmacao_desativacao(token, st.session_state["municipio_confirmando_id"])
 
-# --- LÓGICA DE CONFIRMAÇÃO ---
 
-def confirmar_desativacao(token: str, id_ibge: str) -> None:
-    try:
-        desativar_municipio(token, id_ibge)
-        st.session_state["municipio_confirmando_id"] = None
-        st.toast("Município desativado com sucesso.")
-    except ApiError as exc:
-        st.error(exc.message)
+# ==========================================
+# VACINAS (RF04 & RF05)
+# ==========================================
+
+def _render_formulario_vacina(token: str, is_admin: bool):
+    editando = st.session_state["vacina_editando"]
+    titulo = "Editar vacina" if editando else "Nova vacina"
+
+    with st.container(border=True):
+        st.markdown(f'<div class="municipios-card-title">{titulo}</div>', unsafe_allow_html=True)
+
+        with st.form("form_vacina", border=False, clear_on_submit=True):
+            col_nome, col_complex, col_salvar, col_cancel = st.columns([6, 3, 1.5, 1.5] if editando else [6, 3, 2, 0.1])
+            
+            with col_nome:
+                nome = st.text_input(
+                    "Nome",
+                    value=editando["nome"] if editando else "",
+                    placeholder="Nome da vacina",
+                    label_visibility="collapsed",
+                )
+            with col_complex:
+                # Regra RF05: Marcar/desmarcar alta complexidade só é permitido para Administrador
+                val_complex = editando.get("alta_complexidade", False) if editando else False
+                alta_complex = st.checkbox(
+                    "Alta complexidade",
+                    value=val_complex,
+                    disabled=not is_admin,
+                    help="Permitido apenas para perfil Administrador" if not is_admin else None,
+                )
+            with col_salvar:
+                salvar = st.form_submit_button("Salvar", type="primary", use_container_width=True)
+            
+            if editando:
+                with col_cancel:
+                    if st.form_submit_button("Cancelar", use_container_width=True):
+                        st.session_state["vacina_editando"] = None
+                        st.rerun()
+
+        if salvar:
+            if not nome or not nome.strip():
+                st.error("Informe o nome da vacina.")
+                return
+            
+            payload = {
+                "nome": nome.strip(),
+                "alta_complexidade": alta_complex,
+            }
+
+            try:
+                if editando:
+                    atualizar_vacina(token, editando["id"], payload)
+                    st.toast("Vacina atualizada com sucesso.")
+                else:
+                    criar_vacina(token, payload)
+                    st.toast("Vacina cadastrada com sucesso.")
+                st.session_state["vacina_editando"] = None
+                st.rerun()
+            except ApiError as exc:
+                st.error(exc.message)
+
+
+def _render_lista_vacinas(token: str, pode_editar: bool):
+    with st.container(border=True):
+        col_titulo, col_space, col_busca = st.columns([3, 4, 3])
+        col_titulo.markdown('<div class="municipios-card-title" style="margin-top: 6px;">Vacinas cadastradas</div>', unsafe_allow_html=True)
+        
+        with col_busca:
+            busca = st.text_input(
+                "Buscar",
+                value=st.session_state["vacinas_busca"],
+                placeholder="Buscar vacina",
+                label_visibility="collapsed",
+                key="input_busca_vac",
+            )
+            if busca != st.session_state["vacinas_busca"]:
+                st.session_state["vacinas_busca"] = busca
+                st.session_state["vacinas_page"] = 1
+                st.rerun()
+
+        try:
+            with st.spinner("Carregando vacinas..."):
+                resultado = listar_vacinas(
+                    token,
+                    search=busca,
+                    page=st.session_state["vacinas_page"],
+                    page_size=3,
+                )
+        except ApiError as exc:
+            st.error(exc.message)
+            return
+
+        itens = resultado.get("items", [])
+
+        if not itens:
+            st.info("Nenhuma vacina encontrada.")
+            return
+
+        st.markdown("<hr>", unsafe_allow_html=True)
+        h1, h2, h3 = st.columns([5, 3, 2])
+        h1.caption("**Nome**")
+        h2.caption("**Complexidade**")
+        h3.caption("**Ações**")
+        st.markdown("<hr>", unsafe_allow_html=True)
+
+        for vacina in itens:
+            linha = st.columns([5, 3, 2])
+            nome_html = vacina["nome"]
+            if not vacina.get("ativo", True):
+                nome_html += " " + _badge_html("Inativo", "neutral")
+
+            linha[0].markdown(f"<span style='font-size:13px;color:#3f3f46;'>{nome_html}</span>", unsafe_allow_html=True)
+            
+            is_alta = vacina.get("alta_complexidade", False)
+            complex_badge = _badge_html("Alta", "alta") if is_alta else _badge_html("Padrão", "neutral")
+            linha[1].markdown(complex_badge, unsafe_allow_html=True)
+
+            if pode_editar:
+                with linha[2]:
+                    acao_col1, acao_col2 = st.columns(2)
+                    if acao_col1.button("Editar", key=f"editar_vac_{vacina['id']}", use_container_width=True):
+                        st.session_state["vacina_editando"] = vacina
+                        st.rerun()
+                    if vacina.get("ativo", True) and acao_col2.button("Desativar", key=f"desativar_vac_{vacina['id']}", use_container_width=True):
+                        st.session_state["vacina_confirmando_id"] = vacina["id"]
+                        st.session_state["vacina_dialog_shown"] = False
+                        st.rerun()
+            else:
+                linha[2].write("-")
+            
+            st.markdown("<hr>", unsafe_allow_html=True)
+
+        total = resultado.get("total", len(itens))
+        page = resultado.get("page", 1)
+        total_pages = max(resultado.get("total_pages", 1), 1)
+
+        c_info, c_space, c_prev, c_next = st.columns([6, 3, 0.5, 0.5])
+        c_info.caption(f"Mostrando {len(itens)} de {total} vacinas")
+        if c_prev.button("<", key="prev_vac", disabled=page <= 1, use_container_width=True):
+            st.session_state["vacinas_page"] = page - 1
+            st.rerun()
+        if c_next.button(">", key="next_vac", disabled=page >= total_pages, use_container_width=True):
+            st.session_state["vacinas_page"] = page + 1
+            st.rerun()
+
+        if pode_editar and st.session_state["vacina_confirmando_id"] and not st.session_state["vacina_dialog_shown"]:
+            st.session_state["vacina_dialog_shown"] = True
+            _render_confirmacao_desativacao_vacina(token, st.session_state["vacina_confirmando_id"])
+
+
+# ==========================================
+# MODAIS / DIÁLOGOS DE CONFIRMAÇÃO
+# ==========================================
 
 _dialog = getattr(st, "dialog", None) or st.experimental_dialog
+
 
 @_dialog("Desativar município")
 def _render_confirmacao_desativacao(token: str, id_ibge: str):
@@ -329,83 +491,36 @@ def _render_confirmacao_desativacao(token: str, id_ibge: str):
         st.session_state["municipio_dialog_shown"] = False
         st.rerun()
     if col_confirmar.button("Desativar", type="primary", use_container_width=True):
-        confirmar_desativacao(token, id_ibge)
+        try:
+            desativar_municipio(token, id_ibge)
+            st.session_state["municipio_confirmando_id"] = None
+            st.toast("Município desativado com sucesso.")
+        except ApiError as exc:
+            st.error(exc.message)
         st.session_state["municipio_dialog_shown"] = False
         st.rerun()
 
-# --- SEÇÃO DE VACINAS ---
 
-def _render_formulario_vacina():
-    with st.container(border=True):
-        st.markdown('<div class="municipios-card-title">Nova vacina</div>', unsafe_allow_html=True)
+@_dialog("Desativar vacina")
+def _render_confirmacao_desativacao_vacina(token: str, vacina_id: Any):
+    st.write("Deseja realmente desativar esta vacina?")
+    st.caption("A vacina não será excluída do banco de dados, apenas ficará com o status inativo.")
 
-        with st.form("form_vacina", border=False, clear_on_submit=True):
-            col_nome, col_complex, col_salvar = st.columns([6, 3, 2])
-            
-            with col_nome:
-                nome = st.text_input("Nome", placeholder="Nome da vacina", label_visibility="collapsed")
-            with col_complex:
-                alta_complex = st.checkbox("Alta complexidade")
-            with col_salvar:
-                salvar = st.form_submit_button("Salvar", type="primary", use_container_width=True)
+    col_cancelar, col_confirmar = st.columns(2)
+    if col_cancelar.button("Cancelar", use_container_width=True):
+        st.session_state["vacina_confirmando_id"] = None
+        st.session_state["vacina_dialog_shown"] = False
+        st.rerun()
+    if col_confirmar.button("Desativar", type="primary", use_container_width=True):
+        try:
+            desativar_vacina(token, vacina_id)
+            st.session_state["vacina_confirmando_id"] = None
+            st.toast("Vacina desativada com sucesso.")
+        except ApiError as exc:
+            st.error(exc.message)
+        st.session_state["vacina_dialog_shown"] = False
+        st.rerun()
 
-        if salvar:
-            if not nome.strip():
-                st.error("Informe o nome da vacina.")
-                return
-            
-            nova_vacina = {
-                "id": random.randint(100, 999),
-                "nome": nome.strip(),
-                "complexidade": "Alta" if alta_complex else "Padrão",
-                "ativo": True
-            }
-            st.session_state["vacinas_mock"].append(nova_vacina)
-            st.toast("Vacina cadastrada com sucesso.")
-            st.rerun()
-
-def _render_lista_vacinas(pode_editar: bool):
-    with st.container(border=True):
-        col_titulo, col_space, col_busca = st.columns([3, 4, 3])
-        col_titulo.markdown('<div class="municipios-card-title" style="margin-top: 6px;">Vacinas cadastradas</div>', unsafe_allow_html=True)
-        
-        with col_busca:
-            busca = st.text_input("Buscar", value=st.session_state["vacinas_busca"], placeholder="Buscar vacina", label_visibility="collapsed")
-            if busca != st.session_state["vacinas_busca"]:
-                st.session_state["vacinas_busca"] = busca
-                st.session_state["vacinas_page"] = 1
-                st.rerun()
-
-        itens = [v for v in st.session_state["vacinas_mock"] if busca.lower() in v["nome"].lower()]
-
-        st.markdown("<hr>", unsafe_allow_html=True)
-        h1, h2, h3 = st.columns([5, 3, 2])
-        h1.caption("**Nome**")
-        h2.caption("**Complexidade**")
-        h3.caption("**Ações**")
-        st.markdown("<hr>", unsafe_allow_html=True)
-
-        for vacina in itens:
-            linha = st.columns([5, 3, 2])
-            linha[0].markdown(f"<span style='font-size:13px;color:#3f3f46;'>{vacina['nome']}</span>", unsafe_allow_html=True)
-            
-            complex_badge = _badge_html("Alta", "alta") if vacina["complexidade"] == "Alta" else _badge_html("Padrão", "neutral")
-            linha[1].markdown(complex_badge, unsafe_allow_html=True)
-
-            if pode_editar:
-                with linha[2]:
-                    acao_col1, acao_col2 = st.columns(2)
-                    acao_col1.button("Editar", key=f"editar_vac_{vacina['id']}", use_container_width=True)
-                    acao_col2.button("Desativar", key=f"desativar_vac_{vacina['id']}", use_container_width=True)
-            else:
-                linha[2].write("-")
-            
-            st.markdown("<hr>", unsafe_allow_html=True)
-
-        c_info, c_space, c_prev, c_next = st.columns([6, 3, 0.5, 0.5])
-        c_info.caption(f"Mostrando {len(itens)} de {len(st.session_state['vacinas_mock'])} vacinas")
-        c_prev.button("\<", key="prev_vac", disabled=True, use_container_width=True)
-        c_next.button("\>", key="next_vac", disabled=True, use_container_width=True)
 
 if __name__ == "__main__":
     render_municipios_section()

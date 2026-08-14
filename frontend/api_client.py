@@ -45,6 +45,8 @@ def obter_me(token: str) -> dict:
     return _request("GET", "/auth/me", token)
 
 
+# --- MUNICÍPIOS ---
+
 def listar_municipios(token: str, uf: str = "", ativo: Optional[bool] = None,
                        search: str = "", page: int = 1, page_size: int = 10) -> dict:
     params: dict[str, Any] = {"page": page, "page_size": page_size}
@@ -67,3 +69,29 @@ def atualizar_municipio(token: str, id_ibge: str, payload: dict) -> dict:
 
 def desativar_municipio(token: str, id_ibge: str) -> dict:
     return _request("DELETE", f"/municipios/{id_ibge}", token)
+
+
+# --- VACINAS (RF04 & RF05) ---
+
+def listar_vacinas(token: str, alta_complexidade: Optional[bool] = None, ativo: Optional[bool] = None,
+                   search: str = "", page: int = 1, page_size: int = 10) -> dict:
+    params: dict[str, Any] = {"page": page, "page_size": page_size}
+    if alta_complexidade is not None:
+        params["alta_complexidade"] = str(alta_complexidade).lower()
+    if ativo is not None:
+        params["ativo"] = str(ativo).lower()
+    if search:
+        params["search"] = search
+    return _request("GET", "/vacinas", token, params=params)
+
+
+def criar_vacina(token: str, payload: dict) -> dict:
+    return _request("POST", "/vacinas", token, json=payload)
+
+
+def atualizar_vacina(token: str, vacina_id: Any, payload: dict) -> dict:
+    return _request("PUT", f"/vacinas/{vacina_id}", token, json=payload)
+
+
+def desativar_vacina(token: str, vacina_id: Any) -> dict:
+    return _request("DELETE", f"/vacinas/{vacina_id}", token)
