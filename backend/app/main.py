@@ -1,11 +1,10 @@
 import os
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from jose import JWTError, jwt
 
 from app.database import init_db
-from app.dependencies import get_current_user
 from app.routers.auth import router as auth_router
 from app.routers.municipios import router as municipios_router
 from app.security import ALGORITHM, SECRET_KEY
@@ -52,7 +51,7 @@ app.include_router(municipios_router)
 
 
 @app.get("/health")
-def health_check(current_user=Depends(get_current_user)):
+def health_check():
     return {"status": "ok"}
 
 
