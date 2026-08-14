@@ -1,5 +1,6 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel, field_validator
 
@@ -116,10 +117,6 @@ class VacinaUpdate(VacinaBase):
 class VacinaOut(VacinaBase):
     id: int
     ativo: bool
-    # Se o seu modelo Vacina no banco de dados tiver created_at/updated_at, 
-    # você pode descomentar as linhas abaixo para seguir o mesmo padrão de MunicipioOut.
-    # created_at: datetime
-    # updated_at: datetime
 
     class Config:
         from_attributes = True
@@ -127,6 +124,36 @@ class VacinaOut(VacinaBase):
 
 class PaginatedVacinas(BaseModel):
     items: list[VacinaOut]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+# ==========================================
+# REGISTROS DE VACINAÇÃO (RF06, RNF01, RNF08)
+# ==========================================
+
+class RegistroVacinacaoOut(BaseModel):
+    id: UUID
+    data_vacinacao: date
+    idade: Optional[int] = None
+    vacina_id: Optional[int] = None
+    vacina_nome: Optional[str] = None
+    municipio_residencia_id: Optional[str] = None
+    municipio_residencia_nome: Optional[str] = None
+    municipio_vacina_id: str
+    municipio_vacina_nome: Optional[str] = None
+    teve_deslocamento: Optional[bool] = None
+    quantidade: int
+    status_dado: str
+
+    class Config:
+        from_attributes = True
+
+
+class PaginatedRegistros(BaseModel):
+    items: list[RegistroVacinacaoOut]
     total: int
     page: int
     page_size: int

@@ -74,3 +74,41 @@ def test_desativar_municipio(mock_request):
 
     assert resultado["ativo"] is False
     assert mock_request.call_args.args[0] == "DELETE"
+
+
+@patch("api_client.requests.request")
+def test_listar_registros_monta_query_params(mock_request):
+    from api_client import listar_registros
+
+    mock_request.return_value = _mock_response(
+        200, {"items": [], "total": 0, "page": 1, "page_size": 10, "total_pages": 0}
+    )
+
+    resultado = listar_registros(
+        "token123",
+        municipio_id="2304400",
+        vacina_id=1,
+        data_inicio="2024-01-01",
+        data_fim="2024-12-31",
+        idade_min=18,
+        idade_max=60,
+        status_dado="VALIDO",
+        page=1,
+        page_size=10,
+    )
+
+    assert resultado["total"] == 0
+    called_kwargs = mock_request.call_args.kwargs
+    assert called_kwargs["params"] == {
+        "page": 1,
+        "page_size": 10,
+        "municipio_id": "2304400",
+        "vacina_id": 1,
+        "data_inicio": "2024-01-01",
+        "data_fim": "2024-12-31",
+        "idade_min": 18,
+        "idade_max": 60,
+        "status_dado": "VALIDO",
+    }
+    assert called_kwargs["headers"]["Authorization"] == "Bearer token123"
+
