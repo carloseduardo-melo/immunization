@@ -12,7 +12,6 @@ from sqlalchemy.types import CHAR, TypeDecorator
 class GUID(TypeDecorator):
     impl = CHAR
     cache_ok = True
-
     def load_dialect_impl(self, dialect):
         if dialect.name == "postgresql":
             return dialect.type_descriptor(PG_UUID(as_uuid=True))
@@ -26,7 +25,6 @@ class GUID(TypeDecorator):
         if not isinstance(value, uuid.UUID):
             return str(uuid.UUID(value))
         return str(value)
-
     def process_result_value(self, value, dialect):
         if value is None:
             return value
@@ -46,10 +44,8 @@ class JSONB(TypeDecorator):
 
 
 Base = declarative_base()
-
 class Municipio(Base):
     __tablename__ = "municipios"
-
     id_ibge = Column(String(7), primary_key=True)
     nome = Column(String(150), nullable=False)
     uf = Column(String(2), nullable=False)
@@ -58,7 +54,6 @@ class Municipio(Base):
     ativo = Column(Boolean, nullable=False, server_default=text("true"))
     created_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"), default=func.now())
     updated_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"), default=func.now(), onupdate=func.now())
-
     # Relacionamentos
     alertas = relationship("AlertaCompletude", back_populates="municipio")
 
@@ -74,7 +69,6 @@ class Vacina(Base):
 
 class RegistroVacinacao(Base):
     __tablename__ = "registros_vacinacao"
-
     id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     data_vacinacao = Column(Date, nullable=False)
     idade = Column(SmallInteger, nullable=True) # Aceita NULL
@@ -84,11 +78,11 @@ class RegistroVacinacao(Base):
     teve_deslocamento = Column(Boolean, nullable=True)
     quantidade = Column(Integer, nullable=False, server_default=text("1"))
     status_dado = Column(String(30), nullable=False, server_default=text("'VALIDO'"))
-
+    ativo = Column(Boolean, nullable=False, server_default=text("true"))
     __table_args__ = (
         CheckConstraint("quantidade > 0", name="chk_quantidade_positiva"),
         CheckConstraint(
-            "status_dado IN ('VALIDO', 'DADO_INCONSISTENTE', 'DESLOCAMENTO_INDETERMINADO')", 
+            "status_dado IN ('VALIDO', 'DADO_INCONSISTENTE', 'DESLOCAMENTO_INDETERMINADO')",
             name="chk_status_dado"
         ),
         CheckConstraint(
@@ -101,7 +95,6 @@ class RegistroVacinacao(Base):
         Index("idx_registro_residencia", "municipio_residencia_id"),
     )
 
-
 class UsuarioAdmin(Base):
     __tablename__ = "usuarios_admin"
 
@@ -110,10 +103,9 @@ class UsuarioAdmin(Base):
     senha_hash = Column(String(255), nullable=False)
     role = Column(String(20), nullable=False, server_default=text("'GESTOR_MUNICIPAL'"))
     municipio_alocado_id = Column(String(7), nullable=True)
-
     __table_args__ = (
         CheckConstraint(
-            "role IN ('GESTOR_ESTADUAL', 'GESTOR_MUNICIPAL', 'ADMIN')", 
+            "role IN ('GESTOR_ESTADUAL', 'GESTOR_MUNICIPAL', 'ADMIN')",
             name="chk_user_role"
         ),
     )
@@ -121,7 +113,6 @@ class UsuarioAdmin(Base):
 
 class LogAuditoria(Base):
     __tablename__ = "log_auditoria"
-
     id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     tabela = Column(String(50), nullable=False)
     registro_id = Column(GUID(), nullable=False)
@@ -130,7 +121,6 @@ class LogAuditoria(Base):
     valores_antigos = Column(JSONB, nullable=True)
     valores_novos = Column(JSONB, nullable=True)
     criado_em = Column(TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
-
     __table_args__ = (
         CheckConstraint("acao IN ('UPDATE', 'DELETE')", name="chk_log_acao"),
         Index("idx_auditoria_registro", "tabela", "registro_id"),
@@ -139,7 +129,6 @@ class LogAuditoria(Base):
 
 class AlertaCompletude(Base):
     __tablename__ = "alertas_completude"
-
     id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     referencia_ano = Column(SmallInteger, nullable=False)
     referencia_mes = Column(SmallInteger, nullable=False)
@@ -147,13 +136,12 @@ class AlertaCompletude(Base):
     total_observado = Column(Integer, nullable=False)
     status = Column(String(20), nullable=False, server_default=text("'ABERTO'"))
     criado_em = Column(TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
-
     municipio = relationship("Municipio", back_populates="alertas")
 
     __table_args__ = (
         CheckConstraint("referencia_mes BETWEEN 1 AND 12", name="chk_mes_valido"),
         CheckConstraint(
-            "status IN ('ABERTO', 'INVESTIGANDO', 'RESOLVIDO', 'FALSO_POSITIVO')", 
+            "status IN ('ABERTO', 'INVESTIGANDO', 'RESOLVIDO', 'FALSO_POSITIVO')",
             name="chk_alerta_status"
         ),
     )
