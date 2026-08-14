@@ -6,6 +6,7 @@ from streamlit_cookies_controller import CookieController
 
 from api_client import ApiError, obter_me
 from municipios_ui import render_municipios_section
+from registros_ui import render_registros_section
 
 
 # ============================================================
@@ -783,9 +784,15 @@ else:
         )
 
     # --------------------------------------------------------
-    # MUNICÍPIOS
+    # CONTEÚDO PRINCIPAL (ABAS)
     # --------------------------------------------------------
 
     st.divider()
 
-    render_municipios_section()
+    tab_registros, tab_municipios = st.tabs(["💉 Registros de Vacinação", "🏙️ Gestão de Municípios & Vacinas"])
+
+    with tab_registros:
+        render_registros_section()
+
+    with tab_municipios:
+        render_municipios_section()
