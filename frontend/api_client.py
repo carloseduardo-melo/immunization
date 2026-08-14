@@ -95,3 +95,36 @@ def atualizar_vacina(token: str, vacina_id: Any, payload: dict) -> dict:
 
 def desativar_vacina(token: str, vacina_id: Any) -> dict:
     return _request("DELETE", f"/vacinas/{vacina_id}", token)
+
+
+# --- REGISTROS DE VACINAÇÃO (RF06, RNF01, RNF08) ---
+
+def listar_registros(
+    token: str,
+    municipio_id: str = "",
+    vacina_id: Optional[int] = None,
+    data_inicio: str = "",
+    data_fim: str = "",
+    idade_min: Optional[int] = None,
+    idade_max: Optional[int] = None,
+    status_dado: str = "",
+    page: int = 1,
+    page_size: int = 10,
+) -> dict:
+    params: dict[str, Any] = {"page": page, "page_size": page_size}
+    if municipio_id:
+        params["municipio_id"] = municipio_id
+    if vacina_id is not None:
+        params["vacina_id"] = vacina_id
+    if data_inicio:
+        params["data_inicio"] = data_inicio
+    if data_fim:
+        params["data_fim"] = data_fim
+    if idade_min is not None:
+        params["idade_min"] = idade_min
+    if idade_max is not None:
+        params["idade_max"] = idade_max
+    if status_dado:
+        params["status_dado"] = status_dado
+
+    return _request("GET", "/registros", token, params=params)

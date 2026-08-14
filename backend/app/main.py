@@ -7,6 +7,7 @@ from jose import JWTError, jwt
 from app.database import init_db
 from app.routers.auth import router as auth_router
 from app.routers.municipios import router as municipios_router
+from app.routers.registros import router as registros_router
 from app.routers.vacinas import router as vacinas_router
 from app.security import ALGORITHM, SECRET_KEY
 
@@ -50,6 +51,7 @@ async def auth_middleware(request: Request, call_next):
 app.include_router(auth_router)
 app.include_router(municipios_router)
 app.include_router(vacinas_router)
+app.include_router(registros_router)
 
 
 @app.get("/health")
