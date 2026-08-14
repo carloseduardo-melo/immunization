@@ -123,6 +123,21 @@ def _inject_styles():
         unsafe_allow_html=True,
     )
 
+        /* --- CONTAINERS (BORDAS MAIS SUAVES) --- */
+        [data-testid="stVerticalBlockBorderWrapper"] {
+            border-radius: 8px !important;
+            border-color: #e4e4e7 !important;
+        }
+        
+        /* Divisores customizados para a tabela */
+        hr {
+            margin: 0.75rem 0 !important;
+            border-color: #f4f4f5 !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 def _init_session_state():
     defaults = {
@@ -144,7 +159,6 @@ def _init_session_state():
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
-
 
 def render_municipios_section():
     _init_session_state()
@@ -478,7 +492,6 @@ def _render_lista_vacinas(token: str, pode_editar: bool):
 # ==========================================
 
 _dialog = getattr(st, "dialog", None) or st.experimental_dialog
-
 
 @_dialog("Desativar município")
 def _render_confirmacao_desativacao(token: str, id_ibge: str):
