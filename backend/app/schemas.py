@@ -24,6 +24,12 @@ class TokenResponse(BaseModel):
     municipio_alocado_id: Optional[str] = None
 
 
+class MeResponse(BaseModel):
+    email: str
+    role: str
+    municipio_alocado_id: Optional[str] = None
+
+
 class MunicipioBase(BaseModel):
     nome: str
     uf: str
