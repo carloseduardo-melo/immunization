@@ -2,6 +2,9 @@ import os
 import streamlit as st
 import requests
 
+from streamlit_cookies_controller import CookieController
+
+from api_client import ApiError, obter_me
 from municipios_ui import render_municipios_section
 
 
@@ -21,6 +24,8 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+cookies = CookieController()
+
 
 # ============================================================
 # ESTADO DA SESSÃO
@@ -34,6 +39,41 @@ if "role" not in st.session_state:
 
 if "municipio_id" not in st.session_state:
     st.session_state["municipio_id"] = None
+
+if "_cookie_sync" not in st.session_state:
+    st.session_state["_cookie_sync"] = None
+
+# Sincroniza o cookie pendente de uma rodada anterior (login ou logout).
+# Isso precisa acontecer numa rodada que NÃO termina em st.rerun() logo em
+# seguida: o componente de cookie roda num iframe que só grava/remove o
+# cookie depois de carregar e montar no navegador. Se um st.rerun() troca a
+# árvore de elementos antes disso, o iframe é desmontado e o cookie nunca
+# chega a ser gravado (foi o que causava o F5 sempre voltar pro login).
+if st.session_state["_cookie_sync"] == "set":
+    cookies.set("token", st.session_state["token"])
+    st.session_state["_cookie_sync"] = None
+elif st.session_state["_cookie_sync"] == "clear":
+    if cookies.get("token") is not None:
+        cookies.remove("token")
+    st.session_state["_cookie_sync"] = None
+
+# Recupera a sessão do cookie do navegador (ex.: após um F5).
+# O componente de cookies carrega de forma assíncrona, então o valor
+# real só chega em um rerun subsequente disparado automaticamente.
+if not st.session_state["token"]:
+
+    cookie_token = cookies.get("token")
+
+    if cookie_token:
+        try:
+            me = obter_me(cookie_token)
+        except ApiError:
+            # Token expirado/inválido: limpa o cookie e mantém a tela de login.
+            cookies.remove("token")
+        else:
+            st.session_state["token"] = cookie_token
+            st.session_state["role"] = me.get("role")
+            st.session_state["municipio_id"] = me.get("municipio_alocado_id")
 
 
 # ============================================================
@@ -618,6 +658,8 @@ if not st.session_state["token"]:
                                 data.get("municipio_alocado_id")
                             )
 
+                            st.session_state["_cookie_sync"] = "set"
+
                             st.rerun()
 
 
@@ -709,6 +751,8 @@ else:
         st.session_state["token"] = None
         st.session_state["role"] = None
         st.session_state["municipio_id"] = None
+
+        st.session_state["_cookie_sync"] = "clear"
 
         st.rerun()
 

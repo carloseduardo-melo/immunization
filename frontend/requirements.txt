@@ -6,3 +6,6 @@ pandas==2.2.2
 
 # Comunicação HTTP com a API (FastAPI)
 requests==2.32.3
+
+# Persistência de sessão (cookie) no navegador
+streamlit-cookies-controller==0.0.4

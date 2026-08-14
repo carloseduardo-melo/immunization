@@ -41,6 +41,10 @@ def _request(method: str, path: str, token: str, **kwargs) -> Any:
     return response.json()
 
 
+def obter_me(token: str) -> dict:
+    return _request("GET", "/auth/me", token)
+
+
 def listar_municipios(token: str, uf: str = "", ativo: Optional[bool] = None,
                        search: str = "", page: int = 1, page_size: int = 10) -> dict:
     params: dict[str, Any] = {"page": page, "page_size": page_size}
