@@ -112,3 +112,28 @@ def test_listar_registros_monta_query_params(mock_request):
     }
     assert called_kwargs["headers"]["Authorization"] == "Bearer token123"
 
+
+@patch("api_client.requests.request")
+def test_criar_registro_sucesso(mock_request):
+    from api_client import criar_registro
+
+    mock_request.return_value = _mock_response(
+        201, {"id": "1234-uuid", "status_dado": "VALIDO", "teve_deslocamento": True}
+    )
+
+    payload = {
+        "data_vacinacao": "2024-05-20",
+        "municipio_vacina_id": "2304400",
+        "municipio_residencia_id": "2303709",
+        "vacina_id": 1,
+        "idade": 25,
+        "quantidade": 1,
+    }
+
+    resultado = criar_registro("token123", payload)
+
+    assert resultado["status_dado"] == "VALIDO"
+    assert mock_request.call_args.args[0] == "POST"
+    assert mock_request.call_args.args[1] == "http://localhost:8000/registros"
+
+

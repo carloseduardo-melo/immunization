@@ -2,14 +2,14 @@ from datetime import date
 from math import ceil
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, aliased
 
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models import Municipio, RegistroVacinacao, UsuarioAdmin, Vacina
-from app.schemas import PaginatedRegistros, RegistroVacinacaoOut
+from app.schemas import PaginatedRegistros, RegistroVacinacaoCreate, RegistroVacinacaoOut
 
 router = APIRouter(prefix="/registros", tags=["Registros de Vacinação"])
 
@@ -119,3 +119,86 @@ def listar_registros(
         page_size=page_size,
         total_pages=total_pages,
     )
+
+
+@router.post("", response_model=RegistroVacinacaoOut, status_code=status.HTTP_201_CREATED)
+def criar_registro(
+    payload: RegistroVacinacaoCreate,
+    db: Session = Depends(get_db),
+    current_user: UsuarioAdmin = Depends(get_current_user),
+):
+    """RF07 - Cadastrar registro de vacinação manualmente fora da carga em lote do ETL."""
+    # Validação do Município de Aplicação (Obrigatório)
+    mun_vacina = db.query(Municipio).filter(Municipio.id_ibge == payload.municipio_vacina_id).first()
+    if not mun_vacina:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Município de aplicação não encontrado.",
+        )
+
+    # Validação do Município de Residência (Opcional)
+    mun_residencia = None
+    if payload.municipio_residencia_id:
+        mun_residencia = db.query(Municipio).filter(Municipio.id_ibge == payload.municipio_residencia_id).first()
+        if not mun_residencia:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Município de residência não encontrado.",
+            )
+
+    # Validação da Vacina (Opcional)
+    vacina = None
+    if payload.vacina_id is not None:
+        vacina = db.query(Vacina).filter(Vacina.id == payload.vacina_id).first()
+        if not vacina:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Vacina não encontrada.",
+            )
+
+    # RN01: Cálculo automático de Deslocamento
+    if payload.municipio_residencia_id is None:
+        teve_deslocamento = None
+    else:
+        teve_deslocamento = payload.municipio_residencia_id != payload.municipio_vacina_id
+
+    # RN02 & RN03: Cálculo automático de Status do Dado
+    if payload.idade is not None and (payload.idade < 0 or payload.idade > 110):
+        # RN03: Idade fora de 0-110 anos salva como DADO_INCONSISTENTE
+        status_dado = "DADO_INCONSISTENTE"
+    elif payload.municipio_residencia_id is None:
+        # RN02: Sem residência -> DESLOCAMENTO_INDETERMINADO
+        status_dado = "DESLOCAMENTO_INDETERMINADO"
+    else:
+        status_dado = "VALIDO"
+
+    novo_registro = RegistroVacinacao(
+        data_vacinacao=payload.data_vacinacao,
+        idade=payload.idade,
+        vacina_id=payload.vacina_id,
+        municipio_residencia_id=payload.municipio_residencia_id,
+        municipio_vacina_id=payload.municipio_vacina_id,
+        teve_deslocamento=teve_deslocamento,
+        quantidade=payload.quantidade,
+        status_dado=status_dado,
+    )
+
+    db.add(novo_registro)
+    db.commit()
+    db.refresh(novo_registro)
+
+    return RegistroVacinacaoOut(
+        id=novo_registro.id,
+        data_vacinacao=novo_registro.data_vacinacao,
+        idade=novo_registro.idade,
+        vacina_id=novo_registro.vacina_id,
+        vacina_nome=vacina.nome if vacina else None,
+        municipio_residencia_id=novo_registro.municipio_residencia_id,
+        municipio_residencia_nome=mun_residencia.nome if mun_residencia else None,
+        municipio_vacina_id=novo_registro.municipio_vacina_id,
+        municipio_vacina_nome=mun_vacina.nome,
+        teve_deslocamento=novo_registro.teve_deslocamento,
+        quantidade=novo_registro.quantidade,
+        status_dado=novo_registro.status_dado,
+    )
+

@@ -128,3 +128,7 @@ def listar_registros(
         params["status_dado"] = status_dado
 
     return _request("GET", "/registros", token, params=params)
+
+
+def criar_registro(token: str, payload: dict) -> dict:
+    return _request("POST", "/registros", token, json=payload)

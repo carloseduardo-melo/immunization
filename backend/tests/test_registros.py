@@ -162,3 +162,83 @@ def test_listar_registros_filtro_status(db_session):
     data = response.json()
     assert data["total"] == 1
     assert data["items"][0]["status_dado"] == "DADO_INCONSISTENTE"
+
+
+# --- CADASTRO MANUAL (RF07) ---
+
+
+def test_criar_registro_sucesso(db_session):
+    headers = auth_headers(db_session, "ADMIN")
+    mun1, mun2, vac1, _ = setup_dados_base(db_session)
+
+    payload = {
+        "data_vacinacao": "2024-05-20",
+        "municipio_vacina_id": mun1.id_ibge,
+        "municipio_residencia_id": mun2.id_ibge,
+        "vacina_id": vac1.id,
+        "idade": 30,
+        "quantidade": 1,
+    }
+
+    response = client.post("/registros", json=payload, headers=headers)
+    assert response.status_code == 201
+    data = response.json()
+    assert data["status_dado"] == "VALIDO"
+    assert data["teve_deslocamento"] is True
+    assert data["municipio_vacina_nome"] == "Fortaleza"
+    assert data["municipio_residencia_nome"] == "Caucaia"
+    assert data["vacina_nome"] == "COVID-19"
+
+
+def test_criar_registro_sem_residencia(db_session):
+    headers = auth_headers(db_session, "ADMIN")
+    mun1, _, vac1, _ = setup_dados_base(db_session)
+
+    payload = {
+        "data_vacinacao": "2024-05-20",
+        "municipio_vacina_id": mun1.id_ibge,
+        "municipio_residencia_id": None,
+        "vacina_id": vac1.id,
+        "idade": 25,
+    }
+
+    response = client.post("/registros", json=payload, headers=headers)
+    assert response.status_code == 201
+    data = response.json()
+    assert data["status_dado"] == "DESLOCAMENTO_INDETERMINADO"
+    assert data["teve_deslocamento"] is None
+
+
+def test_criar_registro_idade_inconsistente(db_session):
+    headers = auth_headers(db_session, "ADMIN")
+    mun1, mun2, vac1, _ = setup_dados_base(db_session)
+
+    payload = {
+        "data_vacinacao": "2024-05-20",
+        "municipio_vacina_id": mun1.id_ibge,
+        "municipio_residencia_id": mun2.id_ibge,
+        "vacina_id": vac1.id,
+        "idade": 150,  # Idade fora de 0-110 anos
+    }
+
+    response = client.post("/registros", json=payload, headers=headers)
+    assert response.status_code == 201
+    data = response.json()
+    assert data["status_dado"] == "DADO_INCONSISTENTE"
+    assert data["teve_deslocamento"] is True
+
+
+def test_criar_registro_municipio_inexistente(db_session):
+    headers = auth_headers(db_session, "ADMIN")
+    _, _, vac1, _ = setup_dados_base(db_session)
+
+    payload = {
+        "data_vacinacao": "2024-05-20",
+        "municipio_vacina_id": "9999999",  # Código IBGE inexistente
+        "vacina_id": vac1.id,
+    }
+
+    response = client.post("/registros", json=payload, headers=headers)
+    assert response.status_code == 404
+    assert "Município de aplicação não encontrado" in response.json()["detail"]
+
