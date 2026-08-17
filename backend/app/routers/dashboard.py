@@ -5,10 +5,16 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import RegistroVacinacao
 from app.dependencies import get_current_user
+from app.schemas import DashboardResumo
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
-@router.get("/resumo")
+@router.get(
+    "/resumo",
+    response_model=DashboardResumo,
+    summary="Obter resumo do dashboard",
+    responses={401: {"description": "Token ausente ou inválido."}},
+)
 def obter_resumo_dashboard(
     municipio_id: Optional[str] = None,
     vacina_id: Optional[int] = None,
@@ -16,7 +22,10 @@ def obter_resumo_dashboard(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """RF23 - Retorna os KPIs e dados para o gráfico de linhas do Dashboard ignorando registros inativos."""
+    """RF23 - Retorna os KPIs (total de doses, deslocamentos, taxa de mobilidade e
+    inconsistências) e a série temporal mensal para o gráfico do Dashboard,
+    considerando apenas registros ativos. Aceita filtros opcionais por
+    município, vacina e ano."""
     
     # Inicia a query garantindo que apenas registros ATIVOS sejam contabilizados
     query = db.query(RegistroVacinacao).filter(RegistroVacinacao.ativo == True)

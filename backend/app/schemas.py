@@ -2,12 +2,12 @@ from datetime import date, datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class LoginData(BaseModel):
-    email: str
-    password: str
+    email: str = Field(..., examples=["admin@saude.gov.br"])
+    password: str = Field(..., examples=["senha123"])
 
     @field_validator("email")
     @classmethod
@@ -36,9 +36,9 @@ class MeResponse(BaseModel):
 # ==========================================
 
 class MunicipioBase(BaseModel):
-    nome: str
-    uf: str
-    regiao_saude: Optional[str] = None
+    nome: str = Field(..., examples=["Fortaleza"])
+    uf: str = Field(..., examples=["CE"])
+    regiao_saude: Optional[str] = Field(None, examples=["Região de Fortaleza"])
     polo: bool = False
 
     @field_validator("nome")
@@ -58,7 +58,7 @@ class MunicipioBase(BaseModel):
 
 
 class MunicipioCreate(MunicipioBase):
-    id_ibge: str
+    id_ibge: str = Field(..., examples=["2304400"])
 
     @field_validator("id_ibge")
     @classmethod
@@ -95,7 +95,7 @@ class PaginatedMunicipios(BaseModel):
 # ==========================================
 
 class VacinaBase(BaseModel):
-    nome: str
+    nome: str = Field(..., examples=["COVID-19"])
     alta_complexidade: bool = False
 
     @field_validator("nome")
@@ -153,12 +153,12 @@ class RegistroVacinacaoOut(BaseModel):
 
 
 class RegistroVacinacaoCreate(BaseModel):
-    data_vacinacao: date
-    municipio_vacina_id: str
-    municipio_residencia_id: Optional[str] = None
-    vacina_id: Optional[int] = None
-    idade: Optional[int] = None
-    quantidade: int = 1
+    data_vacinacao: date = Field(..., examples=["2024-05-20"])
+    municipio_vacina_id: str = Field(..., examples=["2304400"])
+    municipio_residencia_id: Optional[str] = Field(None, examples=["2303709"])
+    vacina_id: Optional[int] = Field(None, examples=[1])
+    idade: Optional[int] = Field(None, examples=[30])
+    quantidade: int = Field(1, examples=[1])
 
     @field_validator("municipio_vacina_id")
     @classmethod
@@ -198,3 +198,25 @@ class PaginatedRegistros(BaseModel):
     page: int
     page_size: int
     total_pages: int
+
+
+# ==========================================
+# DASHBOARD (RF23)
+# ==========================================
+
+class DashboardKPIs(BaseModel):
+    total_doses: int
+    total_deslocamentos: int
+    taxa_mobilidade: float
+    total_inconsistentes: int
+
+
+class DashboardSeriePonto(BaseModel):
+    mes: str
+    deslocou: Optional[bool] = None
+    total: int
+
+
+class DashboardResumo(BaseModel):
+    kpis: DashboardKPIs
+    grafico: list[DashboardSeriePonto]
