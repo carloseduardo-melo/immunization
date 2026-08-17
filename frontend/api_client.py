@@ -98,37 +98,24 @@ def desativar_vacina(token: str, vacina_id: Any) -> dict:
 
 
 # --- REGISTROS DE VACINAÇÃO (RF06, RNF01, RNF08) ---
+# --- REGISTROS DE VACINAÇÃO ---
 
-def listar_registros(
-    token: str,
-    municipio_id: str = "",
-    vacina_id: Optional[int] = None,
-    data_inicio: str = "",
-    data_fim: str = "",
-    idade_min: Optional[int] = None,
-    idade_max: Optional[int] = None,
-    status_dado: str = "",
-    page: int = 1,
-    page_size: int = 10,
-) -> dict:
+def listar_registros(token: str, search: str = "", page: int = 1, page_size: int = 10, **kwargs) -> dict:
     params: dict[str, Any] = {"page": page, "page_size": page_size}
-    if municipio_id:
-        params["municipio_id"] = municipio_id
-    if vacina_id is not None:
-        params["vacina_id"] = vacina_id
-    if data_inicio:
-        params["data_inicio"] = data_inicio
-    if data_fim:
-        params["data_fim"] = data_fim
-    if idade_min is not None:
-        params["idade_min"] = idade_min
-    if idade_max is not None:
-        params["idade_max"] = idade_max
-    if status_dado:
-        params["status_dado"] = status_dado
-
+    if search:
+        params["search"] = search
+    # Permite passar outros filtros (municipio_id, etc) em kwargs se necessário depois
+    params.update({k: v for k, v in kwargs.items() if v})
     return _request("GET", "/registros", token, params=params)
 
 
 def criar_registro(token: str, payload: dict) -> dict:
     return _request("POST", "/registros", token, json=payload)
+
+
+def atualizar_registro(token: str, registro_id: str, payload: dict) -> dict:
+    return _request("PUT", f"/registros/{registro_id}", token, json=payload)
+
+
+def desativar_registro(token: str, registro_id: str) -> dict:
+    return _request("DELETE", f"/registros/{registro_id}", token)

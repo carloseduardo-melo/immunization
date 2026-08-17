@@ -159,9 +159,9 @@ def render_municipios_section():
         st.markdown('<div class="page-title">Cadastro de município e vacina</div>', unsafe_allow_html=True)
         st.markdown('<div class="page-subtitle">Administração do catálogo de municípios e imunobiológicos</div>', unsafe_allow_html=True)
     with col_csv:
-        st.button("Exportar CSV", use_container_width=True)
+        st.button("Exportar CSV", use_container_width=True, key="municipios_exportar_csv")
     with col_pdf:
-        st.button("Exportar PDF", type="primary", use_container_width=True)
+        st.button("Exportar PDF", type="primary", use_container_width=True, key="municipios_exportar_pdf")
 
     # --- SEÇÃO DE MUNICÍPIOS ---
     if pode_editar:
