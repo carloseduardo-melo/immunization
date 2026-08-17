@@ -133,4 +133,4 @@ def test_delete_de_registro_inexistente_retorna_404(isolated_db):
         )
 
     assert exc.value.status_code == 404
-    assert exc.value.detail == "Registro de vacinação não encontrado."
+    assert exc.value.detail == "Registro de vacinação não encontrado ou inativo."

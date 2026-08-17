@@ -38,13 +38,13 @@ def _registro_para_auditoria(registro: RegistroVacinacao) -> dict:
 def _buscar_registro_ativo(db: Session, id: UUID) -> RegistroVacinacao:
     registro = (
         db.query(RegistroVacinacao)
-        .filter(RegistroVacinacao.id == id, RegistroVacinacao.ativo.is_(True))
+        .filter(RegistroVacinacao.id == id, RegistroVacinacao.ativo == True)
         .first()
     )
     if not registro:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Registro de vacinação não encontrado.",
+            detail="Registro de vacinação não encontrado ou inativo.",
         )
     return registro
 
@@ -74,12 +74,13 @@ def listar_registros(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """Lista e pagina os registros de vacinação, incluindo nomes dos municípios e vacinas."""
+    """Lista e pagina os registros de vacinação ativos, incluindo nomes dos municípios e vacinas."""
     if page < 1: page = 1
     if page_size < 1: page_size = 10
 
     MunicipioResidencia = aliased(Municipio)
 
+    # Inicia a query filtrando apenas registros ativos (RN05)
     query = db.query(
         RegistroVacinacao,
         Municipio.nome.label("municipio_vacina_nome"),
@@ -91,9 +92,7 @@ def listar_registros(
         MunicipioResidencia, RegistroVacinacao.municipio_residencia_id == MunicipioResidencia.id_ibge
     ).outerjoin(
         Vacina, RegistroVacinacao.vacina_id == Vacina.id
-    ).filter(
-        RegistroVacinacao.ativo.is_(True)
-    )
+    ).filter(RegistroVacinacao.ativo == True)
 
     if search:
         query = query.filter(
@@ -136,14 +135,10 @@ def listar_registros(
 
     items = []
     for reg, mun_vacina_nome, mun_residencia_nome, vac_nome in resultados:
-        # Converte o objeto SQLAlchemy para dicionário
         reg_dict = {c.name: getattr(reg, c.name) for c in reg.__table__.columns}
-
-        # Injeta os nomes resolvidos pelos JOINs
         reg_dict["municipio_vacina_nome"] = mun_vacina_nome
         reg_dict["municipio_residencia_nome"] = mun_residencia_nome
         reg_dict["vacina_nome"] = vac_nome
-
         items.append(reg_dict)
 
     return PaginatedRegistros(
@@ -161,8 +156,7 @@ def criar_registro(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """Cria um novo registro manual de vacinação."""
-
+    """Cria um novo registro manual de vacinação calculando regras automaticamente."""
     municipio_vacina = _buscar_municipio(db, payload.municipio_vacina_id)
     municipio_residencia = (
         _buscar_municipio(db, payload.municipio_residencia_id)
@@ -175,12 +169,10 @@ def criar_registro(
         else None
     )
 
-    # 1. Cálculo do deslocamento (a partir da comparação entre municípios)
     teve_deslocamento = None
     if payload.municipio_residencia_id:
         teve_deslocamento = payload.municipio_residencia_id != payload.municipio_vacina_id
 
-    # 2. Validação de Idade e Status do Dado
     if payload.idade is not None and (payload.idade < 0 or payload.idade > 110):
         status_calculado = "DADO_INCONSISTENTE"
     elif not payload.municipio_residencia_id:
@@ -188,7 +180,6 @@ def criar_registro(
     else:
         status_calculado = "VALIDO"
 
-    # 3. Criação do Registro
     novo_registro = RegistroVacinacao(
         data_vacinacao=payload.data_vacinacao,
         municipio_vacina_id=payload.municipio_vacina_id,
@@ -198,6 +189,7 @@ def criar_registro(
         quantidade=payload.quantidade,
         status_dado=status_calculado,
         teve_deslocamento=teve_deslocamento,
+        ativo=True,
     )
 
     db.add(novo_registro)
@@ -227,14 +219,20 @@ def atualizar_registro(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """RF08 - Edita (retifica) um registro de vacinação existente e registra a alteração na auditoria."""
+    """RF08 - Edita um registro existente, aplica regras de negócio e audita."""
     registro = _buscar_registro_ativo(db, id)
-
     valores_antigos = _registro_para_auditoria(registro)
 
-    status_calculado = "VALIDO"
+    teve_deslocamento = None
+    if payload.municipio_residencia_id:
+        teve_deslocamento = payload.municipio_residencia_id != payload.municipio_vacina_id
+
     if payload.idade is not None and (payload.idade < 0 or payload.idade > 110):
         status_calculado = "DADO_INCONSISTENTE"
+    elif not payload.municipio_residencia_id:
+        status_calculado = "DESLOCAMENTO_INDETERMINADO"
+    else:
+        status_calculado = "VALIDO"
 
     registro.data_vacinacao = payload.data_vacinacao
     registro.municipio_vacina_id = payload.municipio_vacina_id
@@ -243,6 +241,7 @@ def atualizar_registro(
     registro.idade = payload.idade
     registro.quantidade = payload.quantidade
     registro.status_dado = status_calculado
+    registro.teve_deslocamento = teve_deslocamento
 
     valores_novos = _registro_para_auditoria(registro)
 
@@ -254,11 +253,29 @@ def atualizar_registro(
         valores_antigos=valores_antigos,
         valores_novos=valores_novos,
     )
+    
     db.add(log)
     db.commit()
     db.refresh(registro)
+    
+    mun_vac = _buscar_municipio(db, registro.municipio_vacina_id)
+    mun_res = _buscar_municipio(db, registro.municipio_residencia_id) if registro.municipio_residencia_id else None
+    vac = db.query(Vacina).filter(Vacina.id == registro.vacina_id).first() if registro.vacina_id else None
 
-    return registro
+    return RegistroVacinacaoOut(
+        id=registro.id,
+        data_vacinacao=registro.data_vacinacao,
+        idade=registro.idade,
+        vacina_id=registro.vacina_id,
+        vacina_nome=vac.nome if vac else None,
+        municipio_residencia_id=registro.municipio_residencia_id,
+        municipio_residencia_nome=mun_res.nome if mun_res else None,
+        municipio_vacina_id=registro.municipio_vacina_id,
+        municipio_vacina_nome=mun_vac.nome,
+        teve_deslocamento=registro.teve_deslocamento,
+        quantidade=registro.quantidade,
+        status_dado=registro.status_dado,
+    )
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -267,13 +284,12 @@ def excluir_registro(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """Exclui logicamente um registro de vacinação e registra a ação na auditoria."""
+    """Exclui logicamente um registro (ativo=False) e audita a exclusão."""
     registro = _buscar_registro_ativo(db, id)
-
     valores_antigos = _registro_para_auditoria(registro)
 
-    # Exclusão lógica: o registro permanece fisicamente no banco.
-    registro.ativo = False
+    # Exclusão Lógica implementada aqui (RN05)
+    registro.ativo = False 
 
     valores_novos = dict(valores_antigos)
     valores_novos["ativo"] = False
