@@ -7,6 +7,7 @@ from streamlit_cookies_controller import CookieController
 from api_client import ApiError, obter_me
 from municipios_ui import render_municipios_section
 from registros_ui import render_registros_section
+from ui_dashboard import render_dashboard_section  # <-- IMPORTAÇÃO DO DASHBOARD
 from theme import COLORS, inject_global_styles
 
 
@@ -48,7 +49,7 @@ if "_cookie_sync" not in st.session_state:
     st.session_state["_cookie_sync"] = None
 
 if "pagina_ativa" not in st.session_state:
-    st.session_state["pagina_ativa"] = "registros"
+    st.session_state["pagina_ativa"] = "dashboard"  # <-- DASHBOARD COMO TELA INICIAL
 
 # Sincroniza o cookie pendente de uma rodada anterior (login ou logout).
 # Isso precisa acontecer numa rodada que NÃO termina em st.rerun() logo em
@@ -90,10 +91,6 @@ if not st.session_state["token"]:
 if not st.session_state["token"]:
 
     # --------------------------------------------------------
-    # CSS DA TELA DE LOGIN
-    # --------------------------------------------------------
-
-# --------------------------------------------------------
     # CSS DA TELA DE LOGIN
     # --------------------------------------------------------
 
@@ -519,7 +516,9 @@ else:
     # SIDEBAR: marca, navegação, perfil e logout
     # --------------------------------------------------------
 
+    # O Dashboard passa a ser a primeira opção do menu
     PAGINAS = {
+        "dashboard": "📊 Dashboard Geral",
         "registros": "💉 Registros de Vacinação",
         "municipios": "🏙️ Gestão de Municípios & Vacinas",
     }
@@ -571,7 +570,10 @@ else:
             f"IBGE: {st.session_state['municipio_id']}"
         )
 
-    if st.session_state["pagina_ativa"] == "municipios":
+    # Roteamento central das páginas
+    if st.session_state["pagina_ativa"] == "dashboard":
+        render_dashboard_section()
+    elif st.session_state["pagina_ativa"] == "municipios":
         render_municipios_section()
     else:
         render_registros_section()

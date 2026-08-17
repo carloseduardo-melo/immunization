@@ -98,13 +98,11 @@ def desativar_vacina(token: str, vacina_id: Any) -> dict:
 
 
 # --- REGISTROS DE VACINAÇÃO (RF06, RNF01, RNF08) ---
-# --- REGISTROS DE VACINAÇÃO ---
 
 def listar_registros(token: str, search: str = "", page: int = 1, page_size: int = 10, **kwargs) -> dict:
     params: dict[str, Any] = {"page": page, "page_size": page_size}
     if search:
         params["search"] = search
-    # Permite passar outros filtros (municipio_id, etc) em kwargs se necessário depois
     params.update({k: v for k, v in kwargs.items() if v})
     return _request("GET", "/registros", token, params=params)
 
@@ -119,3 +117,16 @@ def atualizar_registro(token: str, registro_id: str, payload: dict) -> dict:
 
 def desativar_registro(token: str, registro_id: str) -> dict:
     return _request("DELETE", f"/registros/{registro_id}", token)
+
+
+# --- DASHBOARD PRINCIPAL (RF23) ---
+
+def obter_resumo_dashboard(token: str, municipio_id: str = None, vacina_id: int = None, ano: int = None) -> dict:
+    params: dict[str, Any] = {}
+    if municipio_id:
+        params["municipio_id"] = municipio_id
+    if vacina_id:
+        params["vacina_id"] = vacina_id
+    if ano:
+        params["ano"] = ano
+    return _request("GET", "/dashboard/resumo", token, params=params)
