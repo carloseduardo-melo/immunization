@@ -188,6 +188,10 @@ class RegistroVacinacaoCreate(BaseModel):
         return v
 
 
+class RegistroVacinacaoUpdate(RegistroVacinacaoCreate):
+    pass
+
+
 class PaginatedRegistros(BaseModel):
     items: list[RegistroVacinacaoOut]
     total: int

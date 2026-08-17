@@ -14,114 +14,7 @@ from api_client import (
     listar_municipios,
     listar_vacinas,
 )
-
-_BADGE_TONES = {
-    "success": ("#dcfce7", "#15803d"),  # Verde (Polo)
-    "neutral": ("#f4f4f5", "#52525b"),  # Cinza (Padrão / Inativo)
-    "alta": ("#f3e8ff", "#7e22ce"),     # Roxo (Alta complexidade)
-}
-
-
-def _badge_html(label: str, tone: str) -> str:
-    bg, color = _BADGE_TONES[tone]
-    return (
-        f'<span style="display:inline-block;padding:2px 10px;border-radius:999px;'
-        f'font-size:12px;font-weight:500;background:{bg};color:{color};">{label}</span>'
-    )
-
-
-def _inject_styles():
-    st.markdown(
-        """
-        <style>
-        /* --- TIPOGRAFIA E CABEÇALHOS --- */
-        .municipios-card-title {
-            font-size: 14px;
-            font-weight: 600;
-            color: #3f3f46;
-            margin-bottom: 12px;
-        }
-        .page-title {
-            font-size: 22px;
-            font-weight: 600;
-            color: #18181b;
-            margin-bottom: 2px;
-        }
-        .page-subtitle {
-            font-size: 13px;
-            color: #71717a;
-            margin-top: 0px;
-            margin-bottom: 24px;
-        }
-        
-        /* --- CORES E BOTÕES --- */
-        button[kind="primary"] {
-            background-color: #5b5bf6 !important;
-            border-color: #5b5bf6 !important;
-            color: #ffffff !important;
-            border-radius: 6px !important;
-            font-weight: 500 !important;
-        }
-        button[kind="primary"]:hover {
-            background-color: #4f46e5 !important;
-            border-color: #4f46e5 !important;
-            color: #ffffff !important;
-        }
-        
-        button[kind="secondary"] {
-            background-color: #ffffff !important;
-            border: 1px solid #e4e4e7 !important;
-            color: #3f3f46 !important;
-            border-radius: 6px !important;
-            padding: 4px 12px !important;
-            font-size: 13px !important;
-            font-weight: 400 !important;
-            min-height: 34px !important;
-        }
-        button[kind="secondary"]:hover {
-            border-color: #d4d4d8 !important;
-            color: #18181b !important;
-        }
-
-        /* --- INPUTS E FORMULÁRIOS --- */
-        [data-baseweb="input"], 
-        [data-baseweb="select"] > div {
-            background-color: #ffffff !important;
-            border: 1px solid #e4e4e7 !important;
-            border-radius: 6px !important;
-        }
-        [data-baseweb="input"]:focus-within, 
-        [data-baseweb="select"] > div:focus-within {
-            border-color: #5b5bf6 !important;
-        }
-        input, .stSelectbox div {
-            font-size: 14px !important;
-            color: #3f3f46 !important;
-        }
-
-        /* Ajuste do Checkbox */
-        [data-testid="stCheckbox"] {
-            padding-top: 8px;
-        }
-        [data-testid="stCheckbox"] label span {
-            font-size: 13px !important;
-            color: #3f3f46 !important;
-        }
-
-        /* Containers de card */
-        [data-testid="stVerticalBlockBorderWrapper"] {
-            border-radius: 8px !important;
-            border-color: #e4e4e7 !important;
-        }
-        
-        hr {
-            margin: 0.75rem 0 !important;
-            border-color: #f4f4f5 !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+from theme import badge_html as _badge_html
 
 
 def _init_session_state():
@@ -147,7 +40,6 @@ def _init_session_state():
 
 def render_municipios_section():
     _init_session_state()
-    _inject_styles()
     token = st.session_state.get("token", "")
     role = st.session_state.get("role", "")
     pode_editar = role in ("ADMIN", "GESTOR_ESTADUAL")
@@ -183,7 +75,7 @@ def _render_formulario_municipio(token: str):
     titulo = "Editar município" if editando else "Novo município"
 
     with st.container(border=True):
-        st.markdown(f'<div class="municipios-card-title">{titulo}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="card-title">{titulo}</div>', unsafe_allow_html=True)
 
         with st.form("form_municipio", border=False, clear_on_submit=True):
             col_nome, col_regiao, col_polo, col_salvar, col_cancel = st.columns([4, 3, 2, 1.5, 1.5] if editando else [4.5, 3.5, 2, 2, 0.1])
@@ -238,7 +130,7 @@ def _render_formulario_municipio(token: str):
 def _render_lista_municipios(token: str, pode_editar: bool):
     with st.container(border=True):
         col_titulo, col_space, col_busca = st.columns([3, 4, 3])
-        col_titulo.markdown('<div class="municipios-card-title" style="margin-top: 6px;">Municípios cadastrados</div>', unsafe_allow_html=True)
+        col_titulo.markdown('<div class="card-title" style="margin-top: 6px;">Municípios cadastrados</div>', unsafe_allow_html=True)
         
         with col_busca:
             busca = st.text_input("Buscar", value=st.session_state["municipios_busca"], placeholder="Buscar município", label_visibility="collapsed", key="input_busca_mun")
@@ -269,7 +161,7 @@ def _render_lista_municipios(token: str, pode_editar: bool):
             return
 
         st.markdown("<hr>", unsafe_allow_html=True)
-        h1, h2, h3, h4 = st.columns([3.5, 3.5, 1.5, 2])
+        h1, h2, h3, h4 = st.columns([3.2, 3.2, 1.4, 2.7])
         h1.caption("**Município**")
         h2.caption("**Região de saúde**")
         h3.caption("**Tipo**")
@@ -277,7 +169,7 @@ def _render_lista_municipios(token: str, pode_editar: bool):
         st.markdown("<hr>", unsafe_allow_html=True)
 
         for municipio in itens:
-            linha = st.columns([3.5, 3.5, 1.5, 2])
+            linha = st.columns([3.2, 3.2, 1.4, 2.7])
             nome_html = municipio["nome"]
             if not municipio.get("ativo", True):
                 nome_html += " " + _badge_html("Inativo", "neutral")
@@ -331,7 +223,7 @@ def _render_formulario_vacina(token: str, is_admin: bool):
     titulo = "Editar vacina" if editando else "Nova vacina"
 
     with st.container(border=True):
-        st.markdown(f'<div class="municipios-card-title">{titulo}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="card-title">{titulo}</div>', unsafe_allow_html=True)
 
         with st.form("form_vacina", border=False, clear_on_submit=True):
             col_nome, col_complex, col_salvar, col_cancel = st.columns([6, 3, 1.5, 1.5] if editando else [6, 3, 2, 0.1])
@@ -387,7 +279,7 @@ def _render_formulario_vacina(token: str, is_admin: bool):
 def _render_lista_vacinas(token: str, pode_editar: bool):
     with st.container(border=True):
         col_titulo, col_space, col_busca = st.columns([3, 4, 3])
-        col_titulo.markdown('<div class="municipios-card-title" style="margin-top: 6px;">Vacinas cadastradas</div>', unsafe_allow_html=True)
+        col_titulo.markdown('<div class="card-title" style="margin-top: 6px;">Vacinas cadastradas</div>', unsafe_allow_html=True)
         
         with col_busca:
             busca = st.text_input(
@@ -421,14 +313,14 @@ def _render_lista_vacinas(token: str, pode_editar: bool):
             return
 
         st.markdown("<hr>", unsafe_allow_html=True)
-        h1, h2, h3 = st.columns([5, 3, 2])
+        h1, h2, h3 = st.columns([4.3, 2.9, 2.8])
         h1.caption("**Nome**")
         h2.caption("**Complexidade**")
         h3.caption("**Ações**")
         st.markdown("<hr>", unsafe_allow_html=True)
 
         for vacina in itens:
-            linha = st.columns([5, 3, 2])
+            linha = st.columns([4.3, 2.9, 2.8])
             nome_html = vacina["nome"]
             if not vacina.get("ativo", True):
                 nome_html += " " + _badge_html("Inativo", "neutral")
