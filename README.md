@@ -2,8 +2,8 @@
 
 > Plataforma de inteligência geográfica e epidemiológica para análise do deslocamento vacinal no Estado do Ceará, desenvolvida como atividade da disciplina de **Projeto III** (Engenharia de Software).
 
->login:admin@imunizacao.local
->senha:Admin@123
+> login:admin@imunizacao.local
+> senha:Admin@123
 
 ---
 
