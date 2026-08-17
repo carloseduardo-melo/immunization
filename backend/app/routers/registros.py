@@ -1,9 +1,10 @@
+from datetime import date
 from math import ceil
 from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -48,9 +49,26 @@ def _buscar_registro_ativo(db: Session, id: UUID) -> RegistroVacinacao:
     return registro
 
 
+def _buscar_municipio(db: Session, id_ibge: str) -> Municipio:
+    municipio = db.query(Municipio).filter(Municipio.id_ibge == id_ibge).first()
+    if not municipio:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Município de aplicação não encontrado.",
+        )
+    return municipio
+
+
 @router.get("", response_model=PaginatedRegistros)
 def listar_registros(
     search: Optional[str] = None,
+    municipio_id: Optional[str] = None,
+    vacina_id: Optional[int] = None,
+    data_inicio: Optional[date] = None,
+    data_fim: Optional[date] = None,
+    idade_min: Optional[int] = None,
+    idade_max: Optional[int] = None,
+    status_dado: Optional[str] = None,
     page: int = 1,
     page_size: int = 10,
     db: Session = Depends(get_db),
@@ -60,12 +78,17 @@ def listar_registros(
     if page < 1: page = 1
     if page_size < 1: page_size = 10
 
+    MunicipioResidencia = aliased(Municipio)
+
     query = db.query(
         RegistroVacinacao,
         Municipio.nome.label("municipio_vacina_nome"),
+        MunicipioResidencia.nome.label("municipio_residencia_nome"),
         Vacina.nome.label("vacina_nome")
     ).outerjoin(
         Municipio, RegistroVacinacao.municipio_vacina_id == Municipio.id_ibge
+    ).outerjoin(
+        MunicipioResidencia, RegistroVacinacao.municipio_residencia_id == MunicipioResidencia.id_ibge
     ).outerjoin(
         Vacina, RegistroVacinacao.vacina_id == Vacina.id
     ).filter(
@@ -76,6 +99,30 @@ def listar_registros(
         query = query.filter(
             Municipio.nome.ilike(f"%{search}%") | Vacina.nome.ilike(f"%{search}%")
         )
+
+    if municipio_id:
+        query = query.filter(
+            (RegistroVacinacao.municipio_residencia_id == municipio_id)
+            | (RegistroVacinacao.municipio_vacina_id == municipio_id)
+        )
+
+    if vacina_id is not None:
+        query = query.filter(RegistroVacinacao.vacina_id == vacina_id)
+
+    if data_inicio is not None:
+        query = query.filter(RegistroVacinacao.data_vacinacao >= data_inicio)
+
+    if data_fim is not None:
+        query = query.filter(RegistroVacinacao.data_vacinacao <= data_fim)
+
+    if idade_min is not None:
+        query = query.filter(RegistroVacinacao.idade >= idade_min)
+
+    if idade_max is not None:
+        query = query.filter(RegistroVacinacao.idade <= idade_max)
+
+    if status_dado:
+        query = query.filter(RegistroVacinacao.status_dado == status_dado)
 
     total = query.count()
     total_pages = ceil(total / page_size) if total else 0
@@ -88,17 +135,15 @@ def listar_registros(
     )
 
     items = []
-    for reg, mun_nome, vac_nome in resultados:
+    for reg, mun_vacina_nome, mun_residencia_nome, vac_nome in resultados:
         # Converte o objeto SQLAlchemy para dicionário
         reg_dict = {c.name: getattr(reg, c.name) for c in reg.__table__.columns}
-        
+
         # Injeta os nomes resolvidos pelos JOINs
-        reg_dict["municipio_vacina_nome"] = mun_nome
+        reg_dict["municipio_vacina_nome"] = mun_vacina_nome
+        reg_dict["municipio_residencia_nome"] = mun_residencia_nome
         reg_dict["vacina_nome"] = vac_nome
-        
-        # Como o schema exige municipio_residencia_nome (opcional), garantimos a chave
-        reg_dict["municipio_residencia_nome"] = None 
-        
+
         items.append(reg_dict)
 
     return PaginatedRegistros(
@@ -117,14 +162,33 @@ def criar_registro(
     current_user=Depends(get_current_user),
 ):
     """Cria um novo registro manual de vacinação."""
-    
-    # 1. Validação de Idade (Regra do Banco)
-    status_calculado = "VALIDO"
-    if payload.idade is not None:
-        if payload.idade < 0 or payload.idade > 110:
-            status_calculado = "DADO_INCONSISTENTE"
 
-    # 2. Criação do Registro
+    municipio_vacina = _buscar_municipio(db, payload.municipio_vacina_id)
+    municipio_residencia = (
+        _buscar_municipio(db, payload.municipio_residencia_id)
+        if payload.municipio_residencia_id
+        else None
+    )
+    vacina = (
+        db.query(Vacina).filter(Vacina.id == payload.vacina_id).first()
+        if payload.vacina_id is not None
+        else None
+    )
+
+    # 1. Cálculo do deslocamento (a partir da comparação entre municípios)
+    teve_deslocamento = None
+    if payload.municipio_residencia_id:
+        teve_deslocamento = payload.municipio_residencia_id != payload.municipio_vacina_id
+
+    # 2. Validação de Idade e Status do Dado
+    if payload.idade is not None and (payload.idade < 0 or payload.idade > 110):
+        status_calculado = "DADO_INCONSISTENTE"
+    elif not payload.municipio_residencia_id:
+        status_calculado = "DESLOCAMENTO_INDETERMINADO"
+    else:
+        status_calculado = "VALIDO"
+
+    # 3. Criação do Registro
     novo_registro = RegistroVacinacao(
         data_vacinacao=payload.data_vacinacao,
         municipio_vacina_id=payload.municipio_vacina_id,
@@ -133,15 +197,27 @@ def criar_registro(
         idade=payload.idade,
         quantidade=payload.quantidade,
         status_dado=status_calculado,
-        teve_deslocamento=None # A ser preenchido futuramente
+        teve_deslocamento=teve_deslocamento,
     )
-    
+
     db.add(novo_registro)
     db.commit()
     db.refresh(novo_registro)
 
-    # Retorna o modelo recém-criado
-    return novo_registro
+    return RegistroVacinacaoOut(
+        id=novo_registro.id,
+        data_vacinacao=novo_registro.data_vacinacao,
+        idade=novo_registro.idade,
+        vacina_id=novo_registro.vacina_id,
+        vacina_nome=vacina.nome if vacina else None,
+        municipio_residencia_id=novo_registro.municipio_residencia_id,
+        municipio_residencia_nome=municipio_residencia.nome if municipio_residencia else None,
+        municipio_vacina_id=novo_registro.municipio_vacina_id,
+        municipio_vacina_nome=municipio_vacina.nome,
+        teve_deslocamento=novo_registro.teve_deslocamento,
+        quantidade=novo_registro.quantidade,
+        status_dado=novo_registro.status_dado,
+    )
 
 
 @router.put("/{id}", response_model=RegistroVacinacaoOut)
