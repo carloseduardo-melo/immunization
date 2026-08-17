@@ -108,6 +108,37 @@ def test_listar_registros_com_dados(db_session):
     assert data["page_size"] == 10
 
 
+def test_listar_registros_ordem_estavel_com_datas_repetidas(db_session):
+    """Regressão: sem um critério de desempate na ordenação, registros com a
+    mesma data_vacinacao podiam voltar em ordem diferente a cada chamada,
+    fazendo a listagem "trocar" de registros sozinha a cada rerun da UI
+    (ex.: ao clicar em Editar/Desativar)."""
+    headers = auth_headers(db_session, "ADMIN")
+    mun1, _, vac1, _ = setup_dados_base(db_session)
+
+    mesma_data = date(2024, 7, 1)
+    for _ in range(8):
+        registro = RegistroVacinacao(
+            data_vacinacao=mesma_data,
+            vacina_id=vac1.id,
+            municipio_residencia_id=mun1.id_ibge,
+            municipio_vacina_id=mun1.id_ibge,
+            teve_deslocamento=False,
+            quantidade=1,
+            status_dado="VALIDO",
+        )
+        db_session.add(registro)
+    db_session.commit()
+
+    resposta1 = client.get("/registros?page=1&page_size=5", headers=headers)
+    resposta2 = client.get("/registros?page=1&page_size=5", headers=headers)
+
+    ids1 = [item["id"] for item in resposta1.json()["items"]]
+    ids2 = [item["id"] for item in resposta2.json()["items"]]
+
+    assert ids1 == ids2
+
+
 def test_listar_registros_filtro_municipio(db_session):
     headers = auth_headers(db_session, "ADMIN")
     setup_dados_base(db_session)
@@ -241,4 +272,57 @@ def test_criar_registro_municipio_inexistente(db_session):
     response = client.post("/registros", json=payload, headers=headers)
     assert response.status_code == 404
     assert "Município de aplicação não encontrado" in response.json()["detail"]
+
+
+# --- EDIÇÃO (RF08 - Editar/Retificar) ---
+
+
+def test_editar_registro_sucesso(db_session):
+    headers = auth_headers(db_session, "ADMIN")
+    mun1, mun2, vac1, vac2 = setup_dados_base(db_session)
+
+    reg = db_session.query(RegistroVacinacao).filter(RegistroVacinacao.status_dado == "VALIDO").first()
+
+    payload = {
+        "data_vacinacao": "2024-06-01",
+        "municipio_vacina_id": mun2.id_ibge,
+        "municipio_residencia_id": mun2.id_ibge,
+        "vacina_id": vac2.id,
+        "idade": 40,
+        "quantidade": 1,
+    }
+
+    response = client.put(f"/registros/{reg.id}", json=payload, headers=headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["data_vacinacao"] == "2024-06-01"
+    assert data["municipio_vacina_id"] == mun2.id_ibge
+    assert data["vacina_id"] == vac2.id
+    assert data["idade"] == 40
+
+
+def test_editar_registro_inexistente_retorna_404(db_session):
+    headers = auth_headers(db_session, "ADMIN")
+    mun1, _, vac1, _ = setup_dados_base(db_session)
+
+    payload = {
+        "data_vacinacao": "2024-06-01",
+        "municipio_vacina_id": mun1.id_ibge,
+        "vacina_id": vac1.id,
+    }
+
+    response = client.put(
+        "/registros/00000000-0000-0000-0000-000000000000",
+        json=payload,
+        headers=headers,
+    )
+    assert response.status_code == 404
+
+
+def test_editar_registro_sem_token(db_session):
+    response = client.put(
+        "/registros/00000000-0000-0000-0000-000000000000",
+        json={"data_vacinacao": "2024-06-01", "municipio_vacina_id": "2304400"},
+    )
+    assert response.status_code == 401
 

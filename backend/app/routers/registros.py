@@ -1,19 +1,74 @@
+from datetime import date
 from math import ceil
 from typing import Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models import Municipio, RegistroVacinacao, Vacina
-from app.schemas import PaginatedRegistros, RegistroVacinacaoCreate, RegistroVacinacaoOut
+from app.models import LogAuditoria, Municipio, RegistroVacinacao, Vacina
+from app.schemas import (
+    PaginatedRegistros,
+    RegistroVacinacaoCreate,
+    RegistroVacinacaoOut,
+    RegistroVacinacaoUpdate,
+)
 
 router = APIRouter(prefix="/registros", tags=["Registros"])
+
+
+def _registro_para_auditoria(registro: RegistroVacinacao) -> dict:
+    """Serializa o registro em valores compatíveis com JSON/JSONB para auditoria."""
+    return {
+        "id": str(registro.id),
+        "data_vacinacao": registro.data_vacinacao.isoformat(),
+        "idade": registro.idade,
+        "vacina_id": registro.vacina_id,
+        "municipio_residencia_id": registro.municipio_residencia_id,
+        "municipio_vacina_id": registro.municipio_vacina_id,
+        "teve_deslocamento": registro.teve_deslocamento,
+        "quantidade": registro.quantidade,
+        "status_dado": registro.status_dado,
+        "ativo": registro.ativo,
+    }
+
+
+def _buscar_registro_ativo(db: Session, id: UUID) -> RegistroVacinacao:
+    registro = (
+        db.query(RegistroVacinacao)
+        .filter(RegistroVacinacao.id == id, RegistroVacinacao.ativo.is_(True))
+        .first()
+    )
+    if not registro:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Registro de vacinação não encontrado.",
+        )
+    return registro
+
+
+def _buscar_municipio(db: Session, id_ibge: str) -> Municipio:
+    municipio = db.query(Municipio).filter(Municipio.id_ibge == id_ibge).first()
+    if not municipio:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Município de aplicação não encontrado.",
+        )
+    return municipio
+
 
 @router.get("", response_model=PaginatedRegistros)
 def listar_registros(
     search: Optional[str] = None,
+    municipio_id: Optional[str] = None,
+    vacina_id: Optional[int] = None,
+    data_inicio: Optional[date] = None,
+    data_fim: Optional[date] = None,
+    idade_min: Optional[int] = None,
+    idade_max: Optional[int] = None,
+    status_dado: Optional[str] = None,
     page: int = 1,
     page_size: int = 10,
     db: Session = Depends(get_db),
@@ -23,14 +78,21 @@ def listar_registros(
     if page < 1: page = 1
     if page_size < 1: page_size = 10
 
+    MunicipioResidencia = aliased(Municipio)
+
     query = db.query(
-        RegistroVacinacao, 
-        Municipio.nome.label("municipio_vacina_nome"), 
+        RegistroVacinacao,
+        Municipio.nome.label("municipio_vacina_nome"),
+        MunicipioResidencia.nome.label("municipio_residencia_nome"),
         Vacina.nome.label("vacina_nome")
     ).outerjoin(
         Municipio, RegistroVacinacao.municipio_vacina_id == Municipio.id_ibge
     ).outerjoin(
+        MunicipioResidencia, RegistroVacinacao.municipio_residencia_id == MunicipioResidencia.id_ibge
+    ).outerjoin(
         Vacina, RegistroVacinacao.vacina_id == Vacina.id
+    ).filter(
+        RegistroVacinacao.ativo.is_(True)
     )
 
     if search:
@@ -38,28 +100,50 @@ def listar_registros(
             Municipio.nome.ilike(f"%{search}%") | Vacina.nome.ilike(f"%{search}%")
         )
 
+    if municipio_id:
+        query = query.filter(
+            (RegistroVacinacao.municipio_residencia_id == municipio_id)
+            | (RegistroVacinacao.municipio_vacina_id == municipio_id)
+        )
+
+    if vacina_id is not None:
+        query = query.filter(RegistroVacinacao.vacina_id == vacina_id)
+
+    if data_inicio is not None:
+        query = query.filter(RegistroVacinacao.data_vacinacao >= data_inicio)
+
+    if data_fim is not None:
+        query = query.filter(RegistroVacinacao.data_vacinacao <= data_fim)
+
+    if idade_min is not None:
+        query = query.filter(RegistroVacinacao.idade >= idade_min)
+
+    if idade_max is not None:
+        query = query.filter(RegistroVacinacao.idade <= idade_max)
+
+    if status_dado:
+        query = query.filter(RegistroVacinacao.status_dado == status_dado)
+
     total = query.count()
     total_pages = ceil(total / page_size) if total else 0
 
     resultados = (
-        query.order_by(RegistroVacinacao.data_vacinacao.desc())
+        query.order_by(RegistroVacinacao.data_vacinacao.desc(), RegistroVacinacao.id)
         .offset((page - 1) * page_size)
         .limit(page_size)
         .all()
     )
 
     items = []
-    for reg, mun_nome, vac_nome in resultados:
+    for reg, mun_vacina_nome, mun_residencia_nome, vac_nome in resultados:
         # Converte o objeto SQLAlchemy para dicionário
         reg_dict = {c.name: getattr(reg, c.name) for c in reg.__table__.columns}
-        
+
         # Injeta os nomes resolvidos pelos JOINs
-        reg_dict["municipio_vacina_nome"] = mun_nome
+        reg_dict["municipio_vacina_nome"] = mun_vacina_nome
+        reg_dict["municipio_residencia_nome"] = mun_residencia_nome
         reg_dict["vacina_nome"] = vac_nome
-        
-        # Como o schema exige municipio_residencia_nome (opcional), garantimos a chave
-        reg_dict["municipio_residencia_nome"] = None 
-        
+
         items.append(reg_dict)
 
     return PaginatedRegistros(
@@ -78,14 +162,33 @@ def criar_registro(
     current_user=Depends(get_current_user),
 ):
     """Cria um novo registro manual de vacinação."""
-    
-    # 1. Validação de Idade (Regra do Banco)
-    status_calculado = "VALIDO"
-    if payload.idade is not None:
-        if payload.idade < 0 or payload.idade > 110:
-            status_calculado = "DADO_INCONSISTENTE"
 
-    # 2. Criação do Registro
+    municipio_vacina = _buscar_municipio(db, payload.municipio_vacina_id)
+    municipio_residencia = (
+        _buscar_municipio(db, payload.municipio_residencia_id)
+        if payload.municipio_residencia_id
+        else None
+    )
+    vacina = (
+        db.query(Vacina).filter(Vacina.id == payload.vacina_id).first()
+        if payload.vacina_id is not None
+        else None
+    )
+
+    # 1. Cálculo do deslocamento (a partir da comparação entre municípios)
+    teve_deslocamento = None
+    if payload.municipio_residencia_id:
+        teve_deslocamento = payload.municipio_residencia_id != payload.municipio_vacina_id
+
+    # 2. Validação de Idade e Status do Dado
+    if payload.idade is not None and (payload.idade < 0 or payload.idade > 110):
+        status_calculado = "DADO_INCONSISTENTE"
+    elif not payload.municipio_residencia_id:
+        status_calculado = "DESLOCAMENTO_INDETERMINADO"
+    else:
+        status_calculado = "VALIDO"
+
+    # 3. Criação do Registro
     novo_registro = RegistroVacinacao(
         data_vacinacao=payload.data_vacinacao,
         municipio_vacina_id=payload.municipio_vacina_id,
@@ -94,12 +197,97 @@ def criar_registro(
         idade=payload.idade,
         quantidade=payload.quantidade,
         status_dado=status_calculado,
-        teve_deslocamento=None # A ser preenchido futuramente
+        teve_deslocamento=teve_deslocamento,
     )
-    
+
     db.add(novo_registro)
     db.commit()
     db.refresh(novo_registro)
-    
-    # Retorna o modelo recém-criado
-    return novo_registro
+
+    return RegistroVacinacaoOut(
+        id=novo_registro.id,
+        data_vacinacao=novo_registro.data_vacinacao,
+        idade=novo_registro.idade,
+        vacina_id=novo_registro.vacina_id,
+        vacina_nome=vacina.nome if vacina else None,
+        municipio_residencia_id=novo_registro.municipio_residencia_id,
+        municipio_residencia_nome=municipio_residencia.nome if municipio_residencia else None,
+        municipio_vacina_id=novo_registro.municipio_vacina_id,
+        municipio_vacina_nome=municipio_vacina.nome,
+        teve_deslocamento=novo_registro.teve_deslocamento,
+        quantidade=novo_registro.quantidade,
+        status_dado=novo_registro.status_dado,
+    )
+
+
+@router.put("/{id}", response_model=RegistroVacinacaoOut)
+def atualizar_registro(
+    id: UUID,
+    payload: RegistroVacinacaoUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """RF08 - Edita (retifica) um registro de vacinação existente e registra a alteração na auditoria."""
+    registro = _buscar_registro_ativo(db, id)
+
+    valores_antigos = _registro_para_auditoria(registro)
+
+    status_calculado = "VALIDO"
+    if payload.idade is not None and (payload.idade < 0 or payload.idade > 110):
+        status_calculado = "DADO_INCONSISTENTE"
+
+    registro.data_vacinacao = payload.data_vacinacao
+    registro.municipio_vacina_id = payload.municipio_vacina_id
+    registro.municipio_residencia_id = payload.municipio_residencia_id
+    registro.vacina_id = payload.vacina_id
+    registro.idade = payload.idade
+    registro.quantidade = payload.quantidade
+    registro.status_dado = status_calculado
+
+    valores_novos = _registro_para_auditoria(registro)
+
+    log = LogAuditoria(
+        tabela="registros_vacinacao",
+        registro_id=registro.id,
+        acao="UPDATE",
+        usuario_id=current_user.id,
+        valores_antigos=valores_antigos,
+        valores_novos=valores_novos,
+    )
+    db.add(log)
+    db.commit()
+    db.refresh(registro)
+
+    return registro
+
+
+@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
+def excluir_registro(
+    id: UUID,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Exclui logicamente um registro de vacinação e registra a ação na auditoria."""
+    registro = _buscar_registro_ativo(db, id)
+
+    valores_antigos = _registro_para_auditoria(registro)
+
+    # Exclusão lógica: o registro permanece fisicamente no banco.
+    registro.ativo = False
+
+    valores_novos = dict(valores_antigos)
+    valores_novos["ativo"] = False
+
+    log = LogAuditoria(
+        tabela="registros_vacinacao",
+        registro_id=registro.id,
+        acao="DELETE",
+        usuario_id=current_user.id,
+        valores_antigos=valores_antigos,
+        valores_novos=valores_novos,
+    )
+
+    db.add(log)
+    db.commit()
+
+    return None

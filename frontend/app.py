@@ -7,6 +7,7 @@ from streamlit_cookies_controller import CookieController
 from api_client import ApiError, obter_me
 from municipios_ui import render_municipios_section
 from registros_ui import render_registros_section
+from theme import COLORS, inject_global_styles
 
 
 # ============================================================
@@ -22,8 +23,10 @@ st.set_page_config(
     page_title="Caminhos da Imunização",
     page_icon="💉",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
+
+inject_global_styles()
 
 cookies = CookieController()
 
@@ -43,6 +46,9 @@ if "municipio_id" not in st.session_state:
 
 if "_cookie_sync" not in st.session_state:
     st.session_state["_cookie_sync"] = None
+
+if "pagina_ativa" not in st.session_state:
+    st.session_state["pagina_ativa"] = "registros"
 
 # Sincroniza o cookie pendente de uma rodada anterior (login ou logout).
 # Isso precisa acontecer numa rodada que NÃO termina em st.rerun() logo em
@@ -87,442 +93,223 @@ if not st.session_state["token"]:
     # CSS DA TELA DE LOGIN
     # --------------------------------------------------------
 
+# --------------------------------------------------------
+    # CSS DA TELA DE LOGIN
+    # --------------------------------------------------------
+
     st.markdown(
-        """
+        f"""
         <style>
+        /* Tela de login: layout split-screen full-bleed */
 
-        /* ==================================================
-           RESET GERAL DO STREAMLIT
-           ================================================== */
-
-        html,
-        body,
-        [data-testid="stAppViewContainer"],
-        [data-testid="stApp"],
-        .stApp {
+        /* 1. Reset estrutural */
+        html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"], .stApp {{
             margin: 0 !important;
             padding: 0 !important;
             width: 100% !important;
             min-height: 100vh !important;
-        }
-
-        /* Remove header */
-        [data-testid="stHeader"] {
-            display: none !important;
-        }
-
-        /* Remove footer */
-        footer {
-            display: none !important;
-        }
-
-        /* Remove menu */
-        #MainMenu {
-            display: none !important;
-        }
-
-        /* Container principal */
-        .main .block-container,
-        [data-testid="stMainBlockContainer"] {
+            background: #ffffff !important;
+        }}
+        
+        .main .block-container, [data-testid="stMainBlockContainer"] {{
             padding: 0 !important;
             margin: 0 !important;
-            max-width: none !important;
+            max-width: 100% !important;
             width: 100% !important;
-        }
+        }}
+        
+        [data-testid="stHeader"], [data-testid="stSidebar"] {{
+            display: none !important;
+        }}
 
-        /* Área principal */
-        [data-testid="stAppViewContainer"] > section {
-            padding: 0 !important;
-            margin: 0 !important;
-        }
-
-
-        /* ==================================================
-           BLOCO DE COLUNAS
-           ================================================== */
-
-        [data-testid="stHorizontalBlock"] {
+        /* 2. Container Pai (stHorizontalBlock) */
+        [data-testid="stHorizontalBlock"] {{
             display: flex !important;
             flex-direction: row !important;
-
-            width: 100% !important;
-            min-width: 100% !important;
-
+            width: 100vw !important;
+            min-height: 100vh !important;
             margin: 0 !important;
             padding: 0 !important;
-
             gap: 0 !important;
-
             align-items: stretch !important;
-        }
+        }}
 
-
-        /* ==================================================
-           COLUNA ESQUERDA
-           ================================================== */
-
-        [data-testid="stHorizontalBlock"]
-        [data-testid="column"]:nth-child(1) {
-
-            background: #5551ff !important;
-
+        /* 3. Painel Esquerdo (Azul) - Seletor corrigido para "column" */
+        [data-testid="column"]:nth-of-type(1) {{
+            background-color: {COLORS["sidebar_bg"]} !important;
             min-height: 100vh !important;
-            height: 100vh !important;
-
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
             padding: 0 10% !important;
-            margin: 0 !important;
+            width: 50% !important;
+            flex: 1 1 50% !important; /* Força metade da tela */
+        }}
 
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
+        [data-testid="column"]:nth-of-type(1) > div {{
+            margin: auto 0 !important;
+            max-width: 500px !important;
+        }}
 
-            box-sizing: border-box !important;
-        }
-
-
-        /* Conteúdo interno da coluna esquerda */
-
-        [data-testid="stHorizontalBlock"]
-        [data-testid="column"]:nth-child(1) > div {
-
-            width: 100% !important;
-            max-width: 600px !important;
-
-            margin: 0 auto !important;
-            padding: 0 !important;
-        }
-
-
-        /* ==================================================
-           COLUNA DIREITA
-           ================================================== */
-
-        [data-testid="stHorizontalBlock"]
-        [data-testid="column"]:nth-child(2) {
-
-            background: #ffffff !important;
-
+        /* 4. Painel Direito (Branco) */
+        [data-testid="column"]:nth-of-type(2) {{
+            background-color: #ffffff !important;
             min-height: 100vh !important;
-            height: 100vh !important;
-
-            padding: 0 8% !important;
-            margin: 0 !important;
-
             display: flex !important;
-            align-items: center !important;
+            flex-direction: column !important;
             justify-content: center !important;
-
-            box-sizing: border-box !important;
-        }
-
-
-        /* Conteúdo interno da coluna direita */
-
-        [data-testid="stHorizontalBlock"]
-        [data-testid="column"]:nth-child(2) > div {
-
+            padding: 0 10% !important;
+            width: 50% !important;
+            flex: 1 1 50% !important;
+        }}
+        
+        [data-testid="column"]:nth-of-type(2) > div {{
+            margin: auto !important;
             width: 100% !important;
-            max-width: 360px !important;
+            max-width: 380px !important;
+        }}
 
-            margin: 0 auto !important;
-            padding: 0 !important;
-        }
-
-
-        /* ==================================================
-           LOGO
-           ================================================== */
-
-        .logo-box {
-
+        /* 5. Tipografia e Elementos da Marca (Esquerda) */
+        .logo-box {{
             width: 56px;
             height: 56px;
-
             background: #ffffff;
-
             border-radius: 12px;
-
             display: flex;
             align-items: center;
             justify-content: center;
-
             margin-bottom: 28px;
-        }
-
-
-        .logo-inner {
-
+        }}
+        .logo-inner {{
             width: 20px;
             height: 20px;
-
-            background: #5551ff;
-
+            background: {COLORS["sidebar_bg"]};
             border-radius: 4px;
-        }
-
-
-        /* ==================================================
-           TEXTO DO PAINEL AZUL
-           ================================================== */
-
-        .brand-title {
-
+        }}
+        .brand-title {{
             margin: 0 0 14px 0;
-
             color: #ffffff;
-
             font-size: 34px;
             line-height: 1.2;
-
             font-weight: 700;
-
             letter-spacing: -0.6px;
-        }
-
-
-        .brand-description {
-
+        }}
+        .brand-description {{
             margin: 0;
-
-            color: #e8e8ff;
-
+            color: {COLORS["sidebar_text"]};
             font-size: 16px;
-
             line-height: 1.6;
-
             font-weight: 400;
-        }
+        }}
 
-
-        /* ==================================================
-           TÍTULO DO LOGIN
-           ================================================== */
-
-        .login-title {
-
+        /* 6. Tipografia do Login (Direita) */
+        .login-title {{
             margin: 0 0 8px 0;
-
-            color: #111827;
-
+            color: {COLORS["ink"]};
             font-size: 25px;
-
             line-height: 1.3;
-
             font-weight: 700;
-
             letter-spacing: -0.3px;
-        }
-
-
-        .login-subtitle {
-
+        }}
+        .login-subtitle {{
             margin: 0 0 30px 0;
-
-            color: #6b7280;
-
+            color: {COLORS["muted"]};
             font-size: 14px;
-
             line-height: 1.5;
-
             font-weight: 400;
-        }
+        }}
 
-
-        /* ==================================================
-           FORMULÁRIO
-           ================================================== */
-
-        [data-testid="stForm"] {
-
+        /* 7. Estilização do Formulário */
+        [data-testid="stForm"] {{
             border: none !important;
-
             padding: 0 !important;
-
             margin: 0 !important;
-
             background: transparent !important;
-        }
-
-
-        /* ==================================================
-           LABELS
-           ================================================== */
-
-        [data-testid="stForm"] label {
-
-            color: #374151 !important;
-
+        }}
+        [data-testid="stForm"] label p {{
+            color: {COLORS["ink"]} !important;
             font-size: 13px !important;
-
-            font-weight: 500 !important;
-        }
-
-
-        /* ==================================================
-           INPUTS
-           ================================================== */
-
-        [data-testid="stForm"] input {
-
-            height: 42px !important;
-
-            min-height: 42px !important;
-
-            background: #ffffff !important;
-
-            border: 1px solid #d1d5db !important;
-
-            border-radius: 6px !important;
-
-            color: #111827 !important;
-
-            font-size: 14px !important;
-
-            padding: 0 12px !important;
-
-            box-sizing: border-box !important;
-        }
-
-
-        /* Input quando recebe foco */
-
-        [data-testid="stForm"] input:focus {
-
-            border-color: #5551ff !important;
-
-            box-shadow: 0 0 0 1px #5551ff !important;
-        }
-
-
-        /* ==================================================
-           BOTÃO ENTRAR
-           ================================================== */
-
-        [data-testid="stFormSubmitButton"] {
-
-            width: 100% !important;
-
-            margin-top: 12px !important;
-        }
-
-
-        [data-testid="stFormSubmitButton"] > button {
-
-            width: 100% !important;
-
-            height: 42px !important;
-
-            min-height: 42px !important;
-
-            background: #5551ff !important;
-
-            color: #ffffff !important;
-
-            border: none !important;
-
-            border-radius: 6px !important;
-
-            font-size: 14px !important;
-
             font-weight: 600 !important;
-
-            padding: 0 !important;
-
-            margin: 0 !important;
-
-            transition:
-                background-color 0.2s ease,
-                transform 0.1s ease !important;
-        }
-
-
-        [data-testid="stFormSubmitButton"] > button:hover {
-
-            background: #4541e6 !important;
-
+            margin-bottom: 4px !important;
+        }}
+        [data-testid="stForm"] input {{
+            height: 46px !important;
+            min-height: 46px !important;
+            border-radius: 8px !important;
+            border: 1px solid {COLORS["border"]} !important;
+            padding: 0 14px !important;
+            font-size: 14px !important;
+            background: #ffffff !important;
+            color: {COLORS["ink"]} !important;
+            box-shadow: none !important;
+        }}
+        [data-testid="stForm"] input:focus {{
+            border-color: {COLORS["primary"]} !important;
+            box-shadow: 0 0 0 1px {COLORS["primary"]} !important;
+        }}
+        
+        /* 8. Botão de Submit */
+        [data-testid="stFormSubmitButton"] {{
+            width: 100% !important;
+            margin-top: 16px !important;
+        }}
+        [data-testid="stFormSubmitButton"] button {{
+            width: 100% !important;
+            height: 46px !important;
+            min-height: 46px !important;
+            background-color: {COLORS["sidebar_bg"]} !important;
             color: #ffffff !important;
-        }
-
-
-        [data-testid="stFormSubmitButton"] > button:active {
-
+            border: none !important;
+            border-radius: 8px !important;
+            font-size: 15px !important;
+            font-weight: 600 !important;
+            padding: 0 !important;
+            transition: all 0.2s ease !important;
+        }}
+        [data-testid="stFormSubmitButton"] button:hover {{
+            background-color: {COLORS["sidebar_bg_active"]} !important;
+            color: #ffffff !important;
+            opacity: 0.95;
+        }}
+        [data-testid="stFormSubmitButton"] button:active {{
             transform: translateY(1px);
-        }
+        }}
 
+        /* 9. Textos auxiliares */
+        .forgot-pass {{
+            margin-top: 24px;
+            color: {COLORS["muted"]};
+            font-size: 13px;
+        }}
 
-        /* ==================================================
-           MENSAGEM ESQUECEU A SENHA
-           ================================================== */
-
-        .forgot-pass {
-
-            margin-top: 18px;
-
-            color: #9ca3af;
-
-            font-size: 12px;
-
-            line-height: 1.5;
-
-            text-align: left;
-        }
-
-
-        /* ==================================================
-           RESPONSIVIDADE
-           ================================================== */
-
-        @media (max-width: 768px) {
-
-            [data-testid="stHorizontalBlock"] {
-
+        /* 10. Responsividade para Mobile */
+        @media (max-width: 768px) {{
+            [data-testid="stHorizontalBlock"] {{
                 flex-direction: column !important;
-            }
-
-
-            [data-testid="stHorizontalBlock"]
-            [data-testid="column"]:nth-child(1) {
-
-                min-height: 360px !important;
-
-                height: auto !important;
-
-                padding: 60px 30px !important;
-
-                align-items: flex-start !important;
-            }
-
-
-            [data-testid="stHorizontalBlock"]
-            [data-testid="column"]:nth-child(2) {
-
+            }}
+            [data-testid="column"]:nth-of-type(1), 
+            [data-testid="column"]:nth-of-type(2) {{
+                width: 100% !important;
                 min-height: auto !important;
-
                 height: auto !important;
+                padding: 40px 24px !important;
+            }}
+            [data-testid="column"]:nth-of-type(1) {{
+                min-height: 30vh !important;
+                align-items: flex-start !important;
+            }}
+            .brand-title {{ font-size: 28px; }}
+            .brand-description {{ font-size: 15px; }}
+        }}
 
-                padding: 60px 30px !important;
-            }
-
-
-            .brand-title {
-
-                font-size: 28px;
-            }
-
-
-            .brand-description {
-
-                font-size: 15px;
-            }
-
-
-            [data-testid="stHorizontalBlock"]
-            [data-testid="column"]:nth-child(2) > div {
-
-                max-width: 420px !important;
-            }
-        }
-
+        
+        /* Remove o quadrado branco injetado pelos wrappers do Streamlit nas colunas do login */
+        [data-testid="column"] [data-testid="stVerticalBlockBorderWrapper"] {{
+            background: transparent !important;
+            border: none !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+        }}
         </style>
         """,
         unsafe_allow_html=True
@@ -729,70 +516,62 @@ if not st.session_state["token"]:
 else:
 
     # --------------------------------------------------------
-    # SIDEBAR
+    # SIDEBAR: marca, navegação, perfil e logout
     # --------------------------------------------------------
 
-    st.sidebar.title(
-        "Navegação"
-    )
+    PAGINAS = {
+        "registros": "💉 Registros de Vacinação",
+        "municipios": "🏙️ Gestão de Municípios & Vacinas",
+    }
 
-    st.sidebar.write(
-        f"Perfil: **{st.session_state['role']}**"
-    )
+    with st.sidebar:
+        st.markdown(
+            """
+            <div class="sidebar-brand">
+                <div class="sidebar-brand-mark"><div class="sidebar-brand-mark-inner"></div></div>
+                <div class="sidebar-brand-text">Caminhos da<br>Imunização</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
+        st.markdown('<div class="sidebar-section-label">Navegação</div>', unsafe_allow_html=True)
+        for chave, rotulo in PAGINAS.items():
+            ativo = st.session_state["pagina_ativa"] == chave
+            if st.button(
+                rotulo,
+                key=f"nav_{chave}",
+                use_container_width=True,
+                type="primary" if ativo else "secondary",
+            ):
+                st.session_state["pagina_ativa"] = chave
+                st.rerun()
+
+        st.markdown("<div style='margin-top:24px;'></div>", unsafe_allow_html=True)
+        st.divider()
+        st.markdown(
+            f'<div class="sidebar-profile">Perfil: <strong>{st.session_state["role"]}</strong></div>',
+            unsafe_allow_html=True,
+        )
+
+        if st.button("Sair / Logout", key="btn_logout", use_container_width=True):
+            st.session_state["token"] = None
+            st.session_state["role"] = None
+            st.session_state["municipio_id"] = None
+            st.session_state["_cookie_sync"] = "clear"
+            st.rerun()
 
     # --------------------------------------------------------
-    # LOGOUT
-    # --------------------------------------------------------
-
-    if st.sidebar.button(
-        "Sair / Logout"
-    ):
-
-        st.session_state["token"] = None
-        st.session_state["role"] = None
-        st.session_state["municipio_id"] = None
-
-        st.session_state["_cookie_sync"] = "clear"
-
-        st.rerun()
-
-
-    # --------------------------------------------------------
-    # DASHBOARD
-    # --------------------------------------------------------
-
-    st.title(
-        "Painel de Controle"
-    )
-
-    st.success(
-        "Login efetuado com sucesso. "
-        "Bem-vindo ao Caminhos da Imunização!"
-    )
-
-
-    # --------------------------------------------------------
-    # RESTRIÇÃO MUNICIPAL
+    # CONTEÚDO PRINCIPAL
     # --------------------------------------------------------
 
     if st.session_state["role"] == "GESTOR_MUNICIPAL":
-
         st.info(
             "O seu acesso está restrito ao município "
             f"IBGE: {st.session_state['municipio_id']}"
         )
 
-    # --------------------------------------------------------
-    # CONTEÚDO PRINCIPAL (ABAS)
-    # --------------------------------------------------------
-
-    st.divider()
-
-    tab_registros, tab_municipios = st.tabs(["💉 Registros de Vacinação", "🏙️ Gestão de Municípios & Vacinas"])
-
-    with tab_registros:
-        render_registros_section()
-
-    with tab_municipios:
+    if st.session_state["pagina_ativa"] == "municipios":
         render_municipios_section()
+    else:
+        render_registros_section()
