@@ -59,7 +59,12 @@ def _buscar_municipio(db: Session, id_ibge: str) -> Municipio:
     return municipio
 
 
-@router.get("", response_model=PaginatedRegistros)
+@router.get(
+    "",
+    response_model=PaginatedRegistros,
+    summary="Listar registros de vacinação",
+    responses={401: {"description": "Token ausente ou inválido."}},
+)
 def listar_registros(
     search: Optional[str] = None,
     municipio_id: Optional[str] = None,
@@ -74,7 +79,10 @@ def listar_registros(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """Lista e pagina os registros de vacinação ativos, incluindo nomes dos municípios e vacinas."""
+    """Lista e pagina os registros de vacinação ativos, incluindo nomes dos municípios e vacinas.
+
+    Suporta filtros combináveis por município (residência ou aplicação),
+    vacina, faixa de data, faixa de idade e status do dado."""
     if page < 1: page = 1
     if page_size < 1: page_size = 10
 
@@ -150,13 +158,27 @@ def listar_registros(
     )
 
 
-@router.post("", response_model=RegistroVacinacaoOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=RegistroVacinacaoOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Cadastrar registro de vacinação",
+    responses={
+        401: {"description": "Token ausente ou inválido."},
+        404: {"description": "Município de aplicação (ou de residência) não encontrado."},
+    },
+)
 def criar_registro(
     payload: RegistroVacinacaoCreate,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """Cria um novo registro manual de vacinação calculando regras automaticamente."""
+    """Cria um novo registro manual de vacinação.
+
+    Calcula automaticamente `teve_deslocamento` (comparando município de
+    residência e de aplicação) e `status_dado`: `DADO_INCONSISTENTE` se a
+    idade estiver fora de 0-110, `DESLOCAMENTO_INDETERMINADO` se o
+    município de residência não for informado, ou `VALIDO` caso contrário."""
     municipio_vacina = _buscar_municipio(db, payload.municipio_vacina_id)
     municipio_residencia = (
         _buscar_municipio(db, payload.municipio_residencia_id)
@@ -212,14 +234,23 @@ def criar_registro(
     )
 
 
-@router.put("/{id}", response_model=RegistroVacinacaoOut)
+@router.put(
+    "/{id}",
+    response_model=RegistroVacinacaoOut,
+    summary="Editar (retificar) registro de vacinação",
+    responses={
+        401: {"description": "Token ausente ou inválido."},
+        404: {"description": "Registro (ou município informado) não encontrado, ou registro inativo."},
+    },
+)
 def atualizar_registro(
     id: UUID,
     payload: RegistroVacinacaoUpdate,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """RF08 - Edita um registro existente, aplica regras de negócio e audita."""
+    """RF08 - Edita (retifica) um registro ativo existente, recalcula `teve_deslocamento`/`status_dado`
+    e grava um log de auditoria com os valores antigos e novos."""
     registro = _buscar_registro_ativo(db, id)
     valores_antigos = _registro_para_auditoria(registro)
 
@@ -278,13 +309,22 @@ def atualizar_registro(
     )
 
 
-@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Excluir (logicamente) registro de vacinação",
+    responses={
+        401: {"description": "Token ausente ou inválido."},
+        404: {"description": "Registro não encontrado ou já inativo."},
+    },
+)
 def excluir_registro(
     id: UUID,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """Exclui logicamente um registro (ativo=False) e audita a exclusão."""
+    """Exclui logicamente um registro (`ativo=false`) e grava um log de auditoria da exclusão.
+    O registro permanece fisicamente no banco, mas deixa de aparecer nas listagens."""
     registro = _buscar_registro_ativo(db, id)
     valores_antigos = _registro_para_auditoria(registro)
 

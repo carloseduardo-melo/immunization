@@ -8,8 +8,16 @@ from app.security import verify_password, create_access_token
 
 router = APIRouter(prefix="/auth", tags=["Autenticação"])
 
-@router.post("/login", response_model=TokenResponse)
+@router.post(
+    "/login",
+    response_model=TokenResponse,
+    summary="Autenticar administrador",
+    responses={
+        401: {"description": "E-mail ou senha incorretos."},
+    },
+)
 def login(login_data: LoginData, db: Session = Depends(get_db)):
+    """Autentica um usuário administrativo e retorna um token JWT (Bearer) válido para os demais endpoints."""
     user = db.query(UsuarioAdmin).filter(UsuarioAdmin.email == login_data.email).first()
 
     # Critério de Aceite: Erro Genérico. Não expõe se o erro foi no email ou na senha.
@@ -36,8 +44,16 @@ def login(login_data: LoginData, db: Session = Depends(get_db)):
     }
 
 
-@router.get("/me", response_model=MeResponse)
+@router.get(
+    "/me",
+    response_model=MeResponse,
+    summary="Obter usuário autenticado",
+    responses={
+        401: {"description": "Token ausente ou inválido."},
+    },
+)
 def me(current_user: UsuarioAdmin = Depends(get_current_user)):
+    """Retorna os dados do usuário dono do token enviado."""
     return {
         "email": current_user.email,
         "role": current_user.role,

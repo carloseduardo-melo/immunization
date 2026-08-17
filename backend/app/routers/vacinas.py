@@ -13,7 +13,12 @@ from app.schemas import PaginatedVacinas, VacinaCreate, VacinaOut, VacinaUpdate
 router = APIRouter(prefix="/vacinas", tags=["Vacinas"])
 
 
-@router.get("", response_model=PaginatedVacinas)
+@router.get(
+    "",
+    response_model=PaginatedVacinas,
+    summary="Listar vacinas",
+    responses={401: {"description": "Token ausente ou inválido."}},
+)
 def listar_vacinas(
     alta_complexidade: Optional[bool] = None,
     ativo: Optional[bool] = None,
@@ -61,13 +66,24 @@ def listar_vacinas(
     )
 
 
-@router.post("", response_model=VacinaOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=VacinaOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Cadastrar vacina",
+    responses={
+        401: {"description": "Token ausente ou inválido."},
+        403: {"description": "Apenas ADMIN pode marcar a vacina como alta complexidade."},
+        409: {"description": "Já existe uma vacina cadastrada com este nome."},
+    },
+)
 def criar_vacina(
     payload: VacinaCreate,
     db: Session = Depends(get_db),
     current_user=Depends(get_admin_and_estadual),
 ):
-    """RF05 - Cadastrar vacina (com padronização e trava de perfil)"""
+    """RF05 - Cadastra uma vacina, com nome padronizado e verificação de duplicidade (case-insensitive).
+    Apenas ADMIN pode marcar `alta_complexidade=true`; ADMIN/GESTOR_ESTADUAL podem cadastrar."""
     nome_padronizado = payload.nome.strip()
 
     # Validação de Nomenclatura Duplicada (Case Insensitive)
@@ -96,14 +112,24 @@ def criar_vacina(
     return vacina
 
 
-@router.put("/{vacina_id}", response_model=VacinaOut)
+@router.put(
+    "/{vacina_id}",
+    response_model=VacinaOut,
+    summary="Editar vacina",
+    responses={
+        401: {"description": "Token ausente ou inválido."},
+        403: {"description": "Apenas ADMIN pode alterar a complexidade da vacina."},
+        404: {"description": "Vacina não encontrada."},
+        409: {"description": "Já existe outra vacina cadastrada com este nome."},
+    },
+)
 def atualizar_vacina(
     vacina_id: int,
     payload: VacinaUpdate,
     db: Session = Depends(get_db),
     current_user=Depends(get_admin_and_estadual),
 ):
-    """RF05 - Editar vacina"""
+    """RF05 - Edita nome e/ou complexidade de uma vacina. Alterar `alta_complexidade` requer perfil ADMIN."""
     vacina = db.query(Vacina).filter(Vacina.id == vacina_id).first()
     if not vacina:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vacina não encontrada.")
@@ -137,13 +163,22 @@ def atualizar_vacina(
     return vacina
 
 
-@router.delete("/{vacina_id}", response_model=VacinaOut)
+@router.delete(
+    "/{vacina_id}",
+    response_model=VacinaOut,
+    summary="Desativar vacina",
+    responses={
+        401: {"description": "Token ausente ou inválido."},
+        403: {"description": "Perfil sem permissão (requer ADMIN ou GESTOR_ESTADUAL)."},
+        404: {"description": "Vacina não encontrada."},
+    },
+)
 def desativar_vacina(
     vacina_id: int,
     db: Session = Depends(get_db),
     current_user=Depends(get_admin_and_estadual),
 ):
-    """RF05 - Apenas desativa a vacina (ativo = false)"""
+    """RF05 - Desativa (ativo=false) uma vacina. Não é uma exclusão física."""
     vacina = db.query(Vacina).filter(Vacina.id == vacina_id).first()
     if not vacina:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vacina não encontrada.")
