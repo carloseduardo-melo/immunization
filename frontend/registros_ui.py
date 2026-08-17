@@ -50,6 +50,38 @@ def carregar_dados_apoio(token: str):
             pass
 
 
+def _init_session_state():
+    defaults = {
+        "reg_page": 1,
+        "reg_busca": "",
+        "filtro_mun": "Todos",
+        "filtro_vacina": "Todas",
+        "filtro_periodo": "2024",
+        "filtro_idade": "Todas",
+        "dados_municipios": [],
+        "dados_vacinas": [],
+    }
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
+
+
+def carregar_dados_apoio(token: str):
+    """Carrega municípios e vacinas para preencher os dropdowns (apenas uma vez)."""
+    if not st.session_state["dados_municipios"]:
+        try:
+            muns = listar_municipios(token, page_size=1000).get("items", [])
+            st.session_state["dados_municipios"] = muns
+        except ApiError:
+            pass
+    if not st.session_state["dados_vacinas"]:
+        try:
+            vacs = listar_vacinas(token, page_size=1000).get("items", [])
+            st.session_state["dados_vacinas"] = vacs
+        except ApiError:
+            pass
+
+
 def render_registros_section():
     token = st.session_state.get("token")
     if not token:
