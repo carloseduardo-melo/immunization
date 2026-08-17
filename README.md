@@ -1,6 +1,6 @@
 # 💉 Caminhos da Imunização
 
-> Plataforma de inteligência geográfica e epidemiológica para análise do deslocamento vacinal no Estado do Ceará, desenvolvida como atividade da disciplina de **Projeto III** (Engenharia de Software).
+> Plataforma de inteligência geográfica e epidemiológica para análise do deslocamento vacinal no Estado do Ceará, desenvolvida como atividade da disciplina de **Projeto III**.
 
 > login:admin@imunizacao.local
 > senha:Admin@123
@@ -21,19 +21,11 @@ O "deslocamento vacinal". Pacientes vacinam-se fora das suas cidades de residên
 
 **Destaques Técnicos e Funcionais:**
 
--
-
 **Processamento Massivo (ETL):** Absorve quase 5 milhões de registos em CSV e comprime o volume no banco de dados em 62% através de agregação inteligente, preservando o anonimato dos pacientes (LGPD).
-
--
 
 **Inteligência Autónoma:** O próprio sistema cruza a cidade de residência com a de aplicação para calcular deslocamentos, e isola automaticamente dados biologicamente impossíveis (ex.: idades > 110 anos) para não contaminar as estatísticas.
 
--
-
 **Alta Performance:** Recorre a _Views Materializadas_ no PostgreSQL para garantir que os dashboards analíticos carreguem milhões de dados agregados em menos de 2 segundos.
-
--
 
 **Segurança e Transparência:** Nenhuma eliminação de dados é física (apenas lógica). Toda a alteração gera um log de auditoria invisível e imutável, essencial para sistemas governamentais.
 
