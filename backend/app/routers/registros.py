@@ -1,5 +1,6 @@
 from math import ceil
 from typing import Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -32,7 +33,6 @@ def _registro_para_auditoria(registro: RegistroVacinacao) -> dict:
         "ativo": registro.ativo,
     }
 
-router = APIRouter(prefix="/registros", tags=["Registros"])
 
 def _buscar_registro_ativo(db: Session, id: UUID) -> RegistroVacinacao:
     registro = (
