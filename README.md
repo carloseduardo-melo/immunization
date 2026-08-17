@@ -2,6 +2,9 @@
 
 > Plataforma de inteligência geográfica e epidemiológica para análise do deslocamento vacinal no Estado do Ceará, desenvolvida como atividade da disciplina de **Projeto III** (Engenharia de Software).
 
+>login:admin@imunizacao.local
+>senha:Admin@123
+
 ---
 
 # 📖 O Projeto
@@ -18,19 +21,20 @@ O "deslocamento vacinal". Pacientes vacinam-se fora das suas cidades de residên
 
 **Destaques Técnicos e Funcionais:**
 
-* 
+-
+
 **Processamento Massivo (ETL):** Absorve quase 5 milhões de registos em CSV e comprime o volume no banco de dados em 62% através de agregação inteligente, preservando o anonimato dos pacientes (LGPD).
 
+-
 
-* 
 **Inteligência Autónoma:** O próprio sistema cruza a cidade de residência com a de aplicação para calcular deslocamentos, e isola automaticamente dados biologicamente impossíveis (ex.: idades > 110 anos) para não contaminar as estatísticas.
 
+-
 
-* 
-**Alta Performance:** Recorre a *Views Materializadas* no PostgreSQL para garantir que os dashboards analíticos carreguem milhões de dados agregados em menos de 2 segundos.
+**Alta Performance:** Recorre a _Views Materializadas_ no PostgreSQL para garantir que os dashboards analíticos carreguem milhões de dados agregados em menos de 2 segundos.
 
+-
 
-* 
 **Segurança e Transparência:** Nenhuma eliminação de dados é física (apenas lógica). Toda a alteração gera um log de auditoria invisível e imutável, essencial para sistemas governamentais.
 
 ---
@@ -38,10 +42,13 @@ O "deslocamento vacinal". Pacientes vacinam-se fora das suas cidades de residên
 # 🎯 Objetivos do Sistema
 
 ### Objetivo Principal
+
 Desenvolver uma ferramenta analítica e operacional que permita aos gestores de saúde do Ceará monitorar o deslocamento vacinal, auxiliando na tomada de decisão sobre distribuição de imunobiológicos e políticas públicas de saúde.
 
 ### Objetivos Específicos (Escopo de Negócio)
+
 De acordo com os requisitos estabelecidos, o sistema deve:
+
 - **Gestão de Dados:** Permitir que gestores consultem e gerenciem (CRUD) registros de vacinação, municípios e vacinas de forma segura.
 - **Análise de Mobilidade:** Identificar automaticamente o deslocamento vacinal, mapeando **municípios-polo** (que recebem volume relevante de pacientes de fora) e **municípios de evasão** (cujos residentes se vacinam em outros locais).
 - **Painéis Analíticos:** Visualizar dashboards de fluxo intermunicipal, sazonalidade e uso de imunobiológicos de alta complexidade.
