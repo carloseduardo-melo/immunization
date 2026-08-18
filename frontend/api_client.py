@@ -121,7 +121,7 @@ def listar_registros(token: str, search: str = "", page: int = 1, page_size: int
     params: dict[str, Any] = {"page": page, "page_size": page_size}
     if search:
         params["search"] = search
-    params.update({k: v for k, v in kwargs.items() if v})
+    params.update({k: v for k, v in kwargs.items() if v is not None})
     return _request("GET", "/registros", token, params=params)
 
 

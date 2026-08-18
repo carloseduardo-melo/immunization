@@ -19,10 +19,10 @@ def _init_session_state():
     defaults = {
         "reg_page": 1,
         "reg_busca": "",
-        "filtro_mun": "Todos",
-        "filtro_vacina": "Todas",
-        "filtro_periodo": "2024",
-        "filtro_idade": "Todas",
+        "filtro_mun": "Município: todos",
+        "filtro_vacina": "Vacina: todas",
+        "filtro_periodo": "Período: 2024",
+        "filtro_idade": "Faixa etária: todas",
         "dados_municipios": [],
         "dados_vacinas": [],
         "registro_editando": None,
@@ -173,18 +173,71 @@ def _render_formulario(token: str):
             except ApiError as exc:
                 st.error(exc.message)
 
+_MAPA_IDADE = {
+    "0-10 anos": (0, 10),
+    "11-20 anos": (11, 20),
+}
+
+
+def _montar_filtros_query(filtro_mun: str, filtro_vacina: str, filtro_periodo: str, filtro_idade: str) -> dict:
+    """Converte a seleção dos filtros da listagem em parâmetros de query para a API."""
+    params: dict[str, Any] = {}
+
+    if filtro_mun != "Município: todos":
+        params["municipio_id"] = filtro_mun.split("(")[-1].replace(")", "")
+
+    if filtro_vacina != "Vacina: todas":
+        params["vacina_id"] = int(filtro_vacina.split("ID: ")[-1].replace(")", ""))
+
+    ano = filtro_periodo.replace("Período: ", "").strip()
+    if ano.isdigit():
+        params["data_inicio"] = f"{ano}-01-01"
+        params["data_fim"] = f"{ano}-12-31"
+
+    if filtro_idade in _MAPA_IDADE:
+        idade_min, idade_max = _MAPA_IDADE[filtro_idade]
+        params["idade_min"] = idade_min
+        params["idade_max"] = idade_max
+
+    return params
+
+
 def _render_filtros():
     # Margem inferior para afastar da tabela
     st.markdown("<div style='margin-bottom: 16px;'></div>", unsafe_allow_html=True)
     col1, col2, col3, col4 = st.columns(4)
+
+    opcoes_mun = ["Município: todos"] + [
+        f"{m['nome']} ({m['id_ibge']})" for m in st.session_state["dados_municipios"]
+    ]
+    opcoes_vac = ["Vacina: todas"] + [
+        f"{v['nome']} (ID: {v['id']})" for v in st.session_state["dados_vacinas"]
+    ]
+    opcoes_periodo = ["Período: 2024", "Período: 2023"]
+    opcoes_idade = ["Faixa etária: todas"] + list(_MAPA_IDADE.keys())
+
     with col1:
-        st.selectbox("Município: todos", ["Município: todos", "Fortaleza", "Sobral"], label_visibility="collapsed")
+        atual_mun = st.session_state["filtro_mun"] if st.session_state["filtro_mun"] in opcoes_mun else opcoes_mun[0]
+        filtro_mun = st.selectbox("Município", opcoes_mun, index=opcoes_mun.index(atual_mun), label_visibility="collapsed")
     with col2:
-        st.selectbox("Vacina: todas", ["Vacina: todas", "Antitetano", "Herpes-zóster", "Febre amarela"], label_visibility="collapsed")
+        atual_vac = st.session_state["filtro_vacina"] if st.session_state["filtro_vacina"] in opcoes_vac else opcoes_vac[0]
+        filtro_vacina = st.selectbox("Vacina", opcoes_vac, index=opcoes_vac.index(atual_vac), label_visibility="collapsed")
     with col3:
-        st.selectbox("Período: 2024", ["Período: 2024", "Período: 2023"], label_visibility="collapsed")
+        atual_periodo = st.session_state["filtro_periodo"] if st.session_state["filtro_periodo"] in opcoes_periodo else opcoes_periodo[0]
+        filtro_periodo = st.selectbox("Período", opcoes_periodo, index=opcoes_periodo.index(atual_periodo), label_visibility="collapsed")
     with col4:
-        st.selectbox("Faixa etária: todas", ["Faixa etária: todas", "0-10 anos", "11-20 anos"], label_visibility="collapsed")
+        atual_idade = st.session_state["filtro_idade"] if st.session_state["filtro_idade"] in opcoes_idade else opcoes_idade[0]
+        filtro_idade = st.selectbox("Faixa etária", opcoes_idade, index=opcoes_idade.index(atual_idade), label_visibility="collapsed")
+
+    for chave, valor in (
+        ("filtro_mun", filtro_mun),
+        ("filtro_vacina", filtro_vacina),
+        ("filtro_periodo", filtro_periodo),
+        ("filtro_idade", filtro_idade),
+    ):
+        if st.session_state[chave] != valor:
+            st.session_state[chave] = valor
+            st.session_state["reg_page"] = 1
 
 
 def _render_lista(token: str):
@@ -198,8 +251,17 @@ def _render_lista(token: str):
                 st.session_state["reg_busca"] = busca
                 st.session_state["reg_page"] = 1
 
+        filtros = _montar_filtros_query(
+            st.session_state["filtro_mun"],
+            st.session_state["filtro_vacina"],
+            st.session_state["filtro_periodo"],
+            st.session_state["filtro_idade"],
+        )
+
         try:
-            resultado = listar_registros(token, search=busca, page=st.session_state["reg_page"], page_size=5)
+            resultado = listar_registros(
+                token, search=busca, page=st.session_state["reg_page"], page_size=5, **filtros
+            )
         except ApiError as exc:
             st.error(f"Erro ao carregar registros: {exc.message}")
             return
