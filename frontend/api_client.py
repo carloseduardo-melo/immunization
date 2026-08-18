@@ -59,6 +59,24 @@ def listar_municipios(token: str, uf: str = "", ativo: Optional[bool] = None,
     return _request("GET", "/municipios", token, params=params)
 
 
+def listar_todos_municipios(token: str, ativo: Optional[bool] = None) -> list:
+    """Percorre todas as páginas de /municipios e retorna a lista completa.
+
+    O backend limita page_size a 100 por requisição, então um único
+    listar_municipios(page_size=500) só retorna a primeira página (os
+    municípios mais no início da ordem alfabética).
+    """
+    itens: list = []
+    pagina = 1
+    while True:
+        resultado = listar_municipios(token, ativo=ativo, page=pagina, page_size=100)
+        itens.extend(resultado.get("items", []))
+        if pagina >= resultado.get("total_pages", pagina):
+            break
+        pagina += 1
+    return itens
+
+
 def criar_municipio(token: str, payload: dict) -> dict:
     return _request("POST", "/municipios", token, json=payload)
 

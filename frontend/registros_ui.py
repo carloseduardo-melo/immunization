@@ -8,8 +8,8 @@ from api_client import (
     atualizar_registro,
     criar_registro,
     desativar_registro,
-    listar_municipios,
     listar_registros,
+    listar_todos_municipios,
     listar_vacinas,
 )
 from theme import badge_html as _badge_html
@@ -38,7 +38,7 @@ def carregar_dados_apoio(token: str):
     """Carrega municípios e vacinas para preencher os dropdowns (apenas uma vez)."""
     if not st.session_state["dados_municipios"]:
         try:
-            muns = listar_municipios(token, page_size=1000).get("items", [])
+            muns = listar_todos_municipios(token)
             st.session_state["dados_municipios"] = muns
         except ApiError:
             pass

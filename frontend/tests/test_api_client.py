@@ -6,6 +6,7 @@ from api_client import (
     criar_municipio,
     desativar_municipio,
     listar_municipios,
+    listar_todos_municipios,
 )
 
 
@@ -31,6 +32,37 @@ def test_listar_municipios_monta_query_params(mock_request):
         "page": 2, "page_size": 10, "uf": "CE", "ativo": "true", "search": "fort",
     }
     assert called_kwargs["headers"]["Authorization"] == "Bearer token123"
+
+
+@patch("api_client.requests.request")
+def test_listar_todos_municipios_percorre_todas_as_paginas(mock_request):
+    pagina_1 = _mock_response(
+        200,
+        {
+            "items": [{"nome": f"Municipio A{i}", "id_ibge": str(i)} for i in range(100)],
+            "total": 184,
+            "page": 1,
+            "page_size": 100,
+            "total_pages": 2,
+        },
+    )
+    pagina_2 = _mock_response(
+        200,
+        {
+            "items": [{"nome": f"Municipio Z{i}", "id_ibge": str(100 + i)} for i in range(84)],
+            "total": 184,
+            "page": 2,
+            "page_size": 100,
+            "total_pages": 2,
+        },
+    )
+    mock_request.side_effect = [pagina_1, pagina_2]
+
+    resultado = listar_todos_municipios("token123")
+
+    assert len(resultado) == 184
+    assert resultado[-1]["nome"] == "Municipio Z83"
+    assert mock_request.call_count == 2
 
 
 @patch("api_client.requests.request")
