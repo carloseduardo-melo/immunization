@@ -146,6 +146,20 @@ def test_listar_registros_monta_query_params(mock_request):
 
 
 @patch("api_client.requests.request")
+def test_listar_registros_preserva_idade_min_zero(mock_request):
+    from api_client import listar_registros
+
+    mock_request.return_value = _mock_response(
+        200, {"items": [], "total": 0, "page": 1, "page_size": 5, "total_pages": 0}
+    )
+
+    listar_registros("token123", page_size=5, idade_min=0, idade_max=10)
+
+    called_kwargs = mock_request.call_args.kwargs
+    assert called_kwargs["params"].get("idade_min") == 0
+
+
+@patch("api_client.requests.request")
 def test_criar_registro_sucesso(mock_request):
     from api_client import criar_registro
 
