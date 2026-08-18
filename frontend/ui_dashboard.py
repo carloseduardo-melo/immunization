@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 
-from api_client import ApiError, listar_municipios, listar_vacinas, obter_resumo_dashboard
+from api_client import ApiError, listar_todos_municipios, listar_vacinas, obter_resumo_dashboard
 
 
 def _inject_styles():
@@ -59,7 +59,7 @@ def _carregar_dados_apoio(token: str):
     """Carrega listas de municípios e vacinas para preencher os filtros."""
     if "dash_municipios" not in st.session_state:
         try:
-            st.session_state["dash_municipios"] = listar_municipios(token, page_size=500).get("items", [])
+            st.session_state["dash_municipios"] = listar_todos_municipios(token)
         except ApiError:
             st.session_state["dash_municipios"] = []
             
