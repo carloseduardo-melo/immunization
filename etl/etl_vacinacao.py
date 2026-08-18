@@ -4,6 +4,7 @@ import os
 import time
 import logging
 from sqlalchemy import create_engine, text, String, Integer, Boolean
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from dotenv import load_dotenv
 
 # 1. Configuração do Log de Execução do ETL (Critério de Aceite)
@@ -30,6 +31,9 @@ if not DATABASE_URL:
 engine = create_engine(DATABASE_URL)
 
 def garantir_tabelas_alvo(conn):
+    """Recria municipios/vacinas/registros_vacinacao com o mesmo esquema
+    definido em backend/app/models.py, para que a API consiga usar os
+    dados carregados por este ETL sem precisar de migração adicional."""
     logging.info("   Garantindo o esquema das tabelas alvo no PostgreSQL...")
     conn.execute(text("DROP TABLE IF EXISTS registros_vacinacao CASCADE;"))
     conn.execute(text("DROP TABLE IF EXISTS vacinas CASCADE;"))
@@ -40,7 +44,11 @@ def garantir_tabelas_alvo(conn):
             id_ibge VARCHAR(7) PRIMARY KEY,
             nome VARCHAR(150) NOT NULL,
             uf VARCHAR(2) NOT NULL,
-            ativo BOOLEAN NOT NULL DEFAULT TRUE
+            regiao_saude VARCHAR(150),
+            polo BOOLEAN NOT NULL DEFAULT FALSE,
+            ativo BOOLEAN NOT NULL DEFAULT TRUE,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
     """))
 
@@ -55,16 +63,25 @@ def garantir_tabelas_alvo(conn):
 
     conn.execute(text("""
         CREATE TABLE registros_vacinacao (
+            id UUID PRIMARY KEY,
             data_vacinacao DATE NOT NULL,
             idade SMALLINT,
-            vacina_id INTEGER,
-            municipio_residencia_id VARCHAR(7),
-            municipio_vacina_id VARCHAR(7) NOT NULL,
+            vacina_id INTEGER REFERENCES vacinas(id),
+            municipio_residencia_id VARCHAR(7) REFERENCES municipios(id_ibge),
+            municipio_vacina_id VARCHAR(7) NOT NULL REFERENCES municipios(id_ibge),
             teve_deslocamento BOOLEAN,
             quantidade INTEGER NOT NULL DEFAULT 1,
-            status_dado VARCHAR(30) NOT NULL DEFAULT 'VALIDO'
+            status_dado VARCHAR(30) NOT NULL DEFAULT 'VALIDO',
+            ativo BOOLEAN NOT NULL DEFAULT TRUE,
+            CONSTRAINT chk_quantidade_positiva CHECK (quantidade > 0),
+            CONSTRAINT chk_status_dado CHECK (status_dado IN ('VALIDO', 'DADO_INCONSISTENTE', 'DESLOCAMENTO_INDETERMINADO')),
+            CONSTRAINT chk_idade_valida CHECK ((idade IS NULL) OR (idade >= 0 AND idade <= 110) OR (status_dado = 'DADO_INCONSISTENTE'))
         )
     """))
+    conn.execute(text("CREATE INDEX idx_registro_data ON registros_vacinacao (data_vacinacao);"))
+    conn.execute(text("CREATE INDEX idx_registro_local ON registros_vacinacao (municipio_vacina_id);"))
+    conn.execute(text("CREATE INDEX idx_registro_vacina ON registros_vacinacao (vacina_id);"))
+    conn.execute(text("CREATE INDEX idx_registro_residencia ON registros_vacinacao (municipio_residencia_id);"))
 
 
 def processar_etl():
@@ -199,6 +216,11 @@ def processar_etl():
             df_consolidado['idade'] = pd.to_numeric(df_consolidado['idade'], errors='coerce').astype('Int64')
             df_consolidado['vacina_id'] = pd.to_numeric(df_consolidado['vacina_id'], errors='coerce').astype('Int64')
 
+            # A tabela alvo usa id UUID como chave primária (sem valor padrão
+            # no banco), então geramos um id por linha aqui, do mesmo jeito
+            # que o modelo SQLAlchemy da API faz (default=uuid.uuid4).
+            df_consolidado['id'] = [uuid.uuid4() for _ in range(len(df_consolidado))]
+
             logging.info("   A injetar Doses Aplicadas no Banco de Dados (isto pode demorar alguns minutos)...")
             tamanho_lote = 1000
             for inicio in range(0, len(df_consolidado), tamanho_lote):
@@ -211,6 +233,7 @@ def processar_etl():
                     method='multi',
                     chunksize=1000,
                     dtype={
+                        'id': PG_UUID(as_uuid=True),
                         'municipio_residencia_id': String(7),
                         'municipio_vacina_id': String(7),
                         'vacina_id': Integer,
