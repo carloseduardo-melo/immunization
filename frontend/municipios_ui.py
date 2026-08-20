@@ -38,6 +38,63 @@ def _init_session_state():
         if key not in st.session_state:
             st.session_state[key] = value
 
+def _validar_formulario(
+    id_ibge: str, nome: str, uf: str, editando: Optional[dict]
+) -> Optional[str]:
+    """Valida o formulário de município antes de chamar a API.
+
+    Devolve a mensagem de erro, ou None se estiver tudo certo. As regras são as
+    mesmas de `MunicipioCreate`/`MunicipioBase` no backend, aplicadas aqui para
+    o usuário receber o erro sem depender de uma ida à API.
+
+    Em modo de edição o código IBGE não é validado: ele é a chave do registro,
+    não é editável, e vem de `editando`.
+    """
+    if not nome or not nome.strip():
+        return "Informe o nome do município."
+
+    uf_limpa = (uf or "").strip().upper()
+    if len(uf_limpa) != 2 or not uf_limpa.isalpha():
+        return "UF deve conter exatamente 2 letras."
+
+    if editando is None:
+        id_limpo = (id_ibge or "").strip()
+        if not id_limpo.isdigit() or len(id_limpo) != 7:
+            return "O código IBGE deve conter exatamente 7 dígitos numéricos."
+
+    return None
+
+
+def confirmar_desativacao(token: str, id_ibge: str) -> None:
+    """Desativa o município e limpa o estado de confirmação.
+
+    O estado só é limpo quando a API confirma a desativação: se a chamada
+    falhar, o município continua marcado para que o usuário veja o erro e possa
+    tentar de novo.
+    """
+    try:
+        desativar_municipio(token, id_ibge)
+    except ApiError as exc:
+        st.error(exc.message)
+        return
+
+    st.session_state["municipio_confirmando_id"] = None
+    st.toast("Município desativado com sucesso.")
+
+
+def confirmar_desativacao_vacina(token: str, vacina_id: Any) -> None:
+    """Desativa a vacina e limpa o estado de confirmação (ver
+    `confirmar_desativacao`, que faz o mesmo para municípios)."""
+    try:
+        desativar_vacina(token, vacina_id)
+    except ApiError as exc:
+        st.error(exc.message)
+        return
+
+    st.session_state["vacina_confirmando_id"] = None
+    st.toast("Vacina desativada com sucesso.")
+
+
 def render_municipios_section():
     _init_session_state()
     token = st.session_state.get("token", "")
@@ -102,13 +159,17 @@ def _render_formulario_municipio(token: str):
                         st.rerun()
 
         if salvar:
-            if not nome or not nome.strip():
-                st.error("Informe o nome do município.")
+            uf = editando["uf"] if editando else "CE"
+            novo_id_ibge = "" if editando else str(random.randint(1000000, 9999999))
+
+            erro = _validar_formulario(novo_id_ibge, nome, uf, editando)
+            if erro:
+                st.error(erro)
                 return
 
             payload = {
                 "nome": nome.strip(),
-                "uf": editando["uf"] if editando else "CE",
+                "uf": uf,
                 "regiao_saude": regiao_saude.strip() or None,
                 "polo": polo,
             }
@@ -118,7 +179,7 @@ def _render_formulario_municipio(token: str):
                     atualizar_municipio(token, editando["id_ibge"], payload)
                     st.toast("Município atualizado com sucesso.")
                 else:
-                    payload["id_ibge"] = str(random.randint(1000000, 9999999))
+                    payload["id_ibge"] = novo_id_ibge
                     criar_municipio(token, payload)
                     st.toast("Município cadastrado com sucesso.")
                 st.session_state["municipio_editando"] = None
@@ -371,7 +432,7 @@ def _render_lista_vacinas(token: str, pode_editar: bool):
 _dialog = getattr(st, "dialog", None) or st.experimental_dialog
 
 @_dialog("Desativar município")
-def _render_confirmacao_desativacao(token: str, id_ibge: str):
+def _render_confirmacao_desativacao(token: str, id_ibge: str):  # pragma: no cover - corpo do diálogo; a regra vive em confirmar_desativacao*
     st.write("Deseja realmente desativar este município?")
     st.caption("O município não será excluído do banco de dados, apenas ficará inativo.")
 
@@ -381,18 +442,13 @@ def _render_confirmacao_desativacao(token: str, id_ibge: str):
         st.session_state["municipio_dialog_shown"] = False
         st.rerun()
     if col_confirmar.button("Desativar", type="primary", use_container_width=True):
-        try:
-            desativar_municipio(token, id_ibge)
-            st.session_state["municipio_confirmando_id"] = None
-            st.toast("Município desativado com sucesso.")
-        except ApiError as exc:
-            st.error(exc.message)
+        confirmar_desativacao(token, id_ibge)
         st.session_state["municipio_dialog_shown"] = False
         st.rerun()
 
 
 @_dialog("Desativar vacina")
-def _render_confirmacao_desativacao_vacina(token: str, vacina_id: Any):
+def _render_confirmacao_desativacao_vacina(token: str, vacina_id: Any):  # pragma: no cover - corpo do diálogo; a regra vive em confirmar_desativacao*
     st.write("Deseja realmente desativar esta vacina?")
     st.caption("A vacina não será excluída do banco de dados, apenas ficará com o status inativo.")
 
@@ -402,15 +458,10 @@ def _render_confirmacao_desativacao_vacina(token: str, vacina_id: Any):
         st.session_state["vacina_dialog_shown"] = False
         st.rerun()
     if col_confirmar.button("Desativar", type="primary", use_container_width=True):
-        try:
-            desativar_vacina(token, vacina_id)
-            st.session_state["vacina_confirmando_id"] = None
-            st.toast("Vacina desativada com sucesso.")
-        except ApiError as exc:
-            st.error(exc.message)
+        confirmar_desativacao_vacina(token, vacina_id)
         st.session_state["vacina_dialog_shown"] = False
         st.rerun()
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     render_municipios_section()

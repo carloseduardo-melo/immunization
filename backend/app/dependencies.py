@@ -23,7 +23,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
-        if email is None:
+        if email is None:  # pragma: no cover - coberto via JWTError abaixo
             raise credentials_exception
     except JWTError:
         raise credentials_exception

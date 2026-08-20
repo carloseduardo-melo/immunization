@@ -50,22 +50,31 @@ def obter_resumo_dashboard(
     
     taxa_mobilidade = round((total_deslocamentos / total_doses * 100), 2) if total_doses > 0 else 0.0
 
+    # Agrupa por ano/mês com `extract`, que o SQLAlchemy traduz tanto para
+    # PostgreSQL (produção) quanto para SQLite (dev.db/test.db). O `date_trunc`
+    # usado antes só existe no PostgreSQL e quebrava o dashboard localmente.
+    ano_col = func.extract('year', RegistroVacinacao.data_vacinacao).label('ano')
+    mes_col = func.extract('month', RegistroVacinacao.data_vacinacao).label('mes_num')
+
     serie_temporal = query.filter(RegistroVacinacao.status_dado != "DADO_INCONSISTENTE") \
         .with_entities(
-            func.date_trunc('month', RegistroVacinacao.data_vacinacao).label('mes'),
+            ano_col,
+            mes_col,
             RegistroVacinacao.teve_deslocamento,
             func.sum(RegistroVacinacao.quantidade).label('total')
         ) \
-        .group_by('mes', RegistroVacinacao.teve_deslocamento) \
-        .order_by('mes') \
+        .group_by(ano_col, mes_col, RegistroVacinacao.teve_deslocamento) \
+        .order_by(ano_col, mes_col) \
         .all()
 
     grafico_dados = [
         {
-            "mes": row.mes.strftime("%Y-%m") if row.mes else "Desconhecido", 
-            "deslocou": row.teve_deslocamento, 
+            "mes": f"{int(row.ano):04d}-{int(row.mes_num):02d}"
+            if row.ano is not None and row.mes_num is not None
+            else "Desconhecido",
+            "deslocou": row.teve_deslocamento,
             "total": row.total
-        } 
+        }
         for row in serie_temporal
     ]
 

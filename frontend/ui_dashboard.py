@@ -170,5 +170,5 @@ def render_dashboard_section():
     render_fluxo_ranking_section()
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     render_dashboard_section()

@@ -111,7 +111,7 @@ def ensure_fluxo_view(bind) -> None:
     """
     dialeto = _dialect_name(bind)
     bind.execute(text(create_view_sql(dialeto)))
-    for sql in create_indexes_sql(dialeto):
+    for sql in create_indexes_sql(dialeto):  # pragma: no cover - lista vazia no SQLite
         bind.execute(text(sql))
     for sql in create_controle_sql(dialeto):
         bind.execute(text(sql))
@@ -139,7 +139,7 @@ def garantir_fluxo_atualizado(bind) -> bool:
     if not marca:
         return False
 
-    if _dialect_name(bind) == "postgresql":
+    if _dialect_name(bind) == "postgresql":  # pragma: no cover - o banco de teste é SQLite
         bind.execute(text(f"REFRESH MATERIALIZED VIEW {VIEW_NAME}"))
     bind.execute(text(f"UPDATE {CONTROLE_TABLE} SET precisa_atualizar = false WHERE id = 1"))
 

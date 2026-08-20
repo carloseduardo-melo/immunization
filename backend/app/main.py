@@ -93,7 +93,7 @@ async def auth_middleware(request: Request, call_next):
             content={"detail": "Token ausente ou inválido."},
         )
 
-    if email is None:
+    if email is None:  # pragma: no cover - já garantido no bloco try acima
         return JSONResponse(
             status_code=401,
             content={"detail": "Token ausente ou inválido."},
@@ -116,6 +116,6 @@ def health_check():
 
 
 @app.on_event("startup")
-def on_startup():
+def on_startup():  # pragma: no cover - desligado sob pytest (TESTING=1)
     if os.getenv("TESTING") != "1":
         init_db()

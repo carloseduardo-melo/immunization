@@ -57,6 +57,22 @@ def carregar_dados_apoio(token: str):
             pass
 
 
+def confirmar_desativacao_registro(token: str, registro_id: str) -> None:
+    """Exclui logicamente o registro e limpa o estado de confirmação.
+
+    O estado só é limpo quando a API confirma: se falhar, o registro continua
+    marcado para o usuário ver o erro e poder tentar de novo.
+    """
+    try:
+        desativar_registro(token, registro_id)
+    except ApiError as exc:
+        st.error(exc.message)
+        return
+
+    st.session_state["registro_confirmando_id"] = None
+    st.toast("Registro desativado com sucesso.")
+
+
 def render_registros_section():
     token = st.session_state.get("token")
     if not token:
@@ -353,7 +369,7 @@ _dialog = getattr(st, "dialog", None) or st.experimental_dialog
 
 
 @_dialog("Desativar registro")
-def _render_confirmacao_desativacao(token: str, registro_id: str):
+def _render_confirmacao_desativacao(token: str, registro_id: str):  # pragma: no cover - corpo do diálogo; a regra vive em confirmar_desativacao*
     st.write("Deseja realmente desativar este registro de vacinação?")
     st.caption("O registro não será excluído do banco de dados, apenas ficará inativo.")
 
@@ -363,15 +379,10 @@ def _render_confirmacao_desativacao(token: str, registro_id: str):
         st.session_state["registro_dialog_shown"] = False
         st.rerun()
     if col_confirmar.button("Desativar", type="primary", use_container_width=True):
-        try:
-            desativar_registro(token, registro_id)
-            st.session_state["registro_confirmando_id"] = None
-            st.toast("Registro desativado com sucesso.")
-        except ApiError as exc:
-            st.error(exc.message)
+        confirmar_desativacao_registro(token, registro_id)
         st.session_state["registro_dialog_shown"] = False
         st.rerun()
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     render_registros_section()
