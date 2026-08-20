@@ -8,12 +8,18 @@ from sqlalchemy.orm import sessionmaker
 from app.main import app
 from app.models import Base, LogAuditoria, Municipio, RegistroVacinacao, UsuarioAdmin
 from app.routers.registros import excluir_registro, listar_registros
+from app.sql_views import ensure_fluxo_view
 
 
 @pytest.fixture
 def isolated_db():
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(bind=engine)
+    # A view de fluxo e sua tabela de controle não são mapeadas pelo ORM, mas
+    # fazem parte do schema: as escritas em /registros marcam a view para
+    # atualização (ver app/sql_views.py).
+    with engine.begin() as conn:
+        ensure_fluxo_view(conn)
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     db = TestingSessionLocal()
 

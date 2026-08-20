@@ -3,6 +3,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.models import Base, UsuarioAdmin
 from app.security import get_password_hash
+from app.sql_views import ensure_fluxo_view
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 if os.getenv("TESTING") == "1":
@@ -25,6 +26,8 @@ def get_db():
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+    with engine.begin() as conn:
+        ensure_fluxo_view(conn)
     ensure_default_admin_user()
 
 

@@ -220,3 +220,37 @@ class DashboardSeriePonto(BaseModel):
 class DashboardResumo(BaseModel):
     kpis: DashboardKPIs
     grafico: list[DashboardSeriePonto]
+
+
+# ==========================================
+# FLUXO INTERMUNICIPAL (RF13 & RF14)
+# ==========================================
+
+class FluxoIntermunicipalItem(BaseModel):
+    municipio_origem_id: str
+    municipio_origem_nome: str
+    municipio_destino_id: str
+    municipio_destino_nome: str
+    total_doses: int
+
+
+class FluxoIntermunicipalResponse(BaseModel):
+    items: list[FluxoIntermunicipalItem]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+    total_doses: int
+
+
+class RankingMunicipioItem(BaseModel):
+    municipio_id: str
+    municipio_nome: str
+    total_recebido: int
+    total_perdido: int
+    saldo_liquido: int
+
+
+class FluxoRankingResponse(BaseModel):
+    top_polo: list[RankingMunicipioItem]
+    top_evasao: list[RankingMunicipioItem]

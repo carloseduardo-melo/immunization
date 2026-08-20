@@ -1,7 +1,9 @@
 import pandas as pd
 import streamlit as st
 
-from api_client import ApiError, listar_todos_municipios, listar_vacinas, obter_resumo_dashboard
+from api_client import ApiError
+from data_cache import listar_municipios_resumido, listar_vacinas_resumido, resumo_dashboard
+from fluxo_ui import render_fluxo_ranking_section
 
 
 def _inject_styles():
@@ -56,35 +58,28 @@ def _inject_styles():
 
 
 def _carregar_dados_apoio(token: str):
-    """Carrega listas de municípios e vacinas para preencher os filtros."""
-    if "dash_municipios" not in st.session_state:
-        try:
-            st.session_state["dash_municipios"] = listar_todos_municipios(token)
-        except ApiError:
-            st.session_state["dash_municipios"] = []
-            
-    if "dash_vacinas" not in st.session_state:
-        try:
-            st.session_state["dash_vacinas"] = listar_vacinas(token, page_size=500).get("items", [])
-        except ApiError:
-            st.session_state["dash_vacinas"] = []
+    """Listas de municípios e vacinas para os filtros, servidas pelo cache.
+
+    Antes ficavam em `st.session_state`, o que mantinha os objetos completos da
+    API presos em memória por toda a sessão de cada usuário. O cache do
+    Streamlit é compartilhado entre sessões e expira sozinho (ver data_cache).
+    """
+    try:
+        municipios = listar_municipios_resumido(token)
+    except ApiError:
+        municipios = []
+    try:
+        vacinas = listar_vacinas_resumido(token)
+    except ApiError:
+        vacinas = []
+    return municipios, vacinas
 
 
-def render_dashboard_section():
-    token = st.session_state.get("token")
-    if not token:
-        st.warning("É necessário estar autenticado para visualizar o dashboard.")
-        return
-
-    _inject_styles()
-    _carregar_dados_apoio(token)
-
-    st.markdown('<div class="page-title">📊 Visão Geral do Ceará</div>', unsafe_allow_html=True)
-    st.markdown('<div class="page-subtitle">Indicadores agregados de imunização e mobilidade vacinal.</div>', unsafe_allow_html=True)
-
+def _render_visao_geral(token: str, municipios, vacinas):
+    """RF23 - KPIs e série temporal mensal (residentes vs. deslocados)."""
     # --- FILTROS GLOBAIS ---
-    opcoes_mun = ["Todos"] + [f"{m['nome']} ({m['id_ibge']})" for m in st.session_state.get("dash_municipios", [])]
-    opcoes_vac = ["Todas"] + [f"{v['nome']} (ID: {v['id']})" for v in st.session_state.get("dash_vacinas", [])]
+    opcoes_mun = ["Todos"] + [f"{nome} ({mid})" for mid, nome in municipios]
+    opcoes_vac = ["Todas"] + [f"{nome} (ID: {vid})" for vid, nome in vacinas]
     opcoes_ano = ["Todos", "2026", "2025", "2024", "2023"]
 
     with st.container(border=True):
@@ -109,7 +104,7 @@ def render_dashboard_section():
     # --- BUSCA DE DADOS ---
     with st.spinner("Analisando métricas..."):
         try:
-            dados = obter_resumo_dashboard(token, municipio_id=mun_id, vacina_id=vac_id, ano=ano_val)
+            dados = resumo_dashboard(token, municipio_id=mun_id, vacina_id=vac_id, ano=ano_val)
             kpis = dados.get("kpis", {})
             grafico_raw = dados.get("grafico", [])
         except ApiError as exc:
@@ -135,25 +130,45 @@ def render_dashboard_section():
 
     # --- GRÁFICO DE LINHAS (RF23) ---
     st.markdown('<div style="font-weight: 600; color: #3f3f46; margin-bottom: 16px;">Evolução: Residentes vs. Pacientes Deslocados</div>', unsafe_allow_html=True)
-    
+
     if not grafico_raw:
         st.info("Não há dados suficientes para gerar o gráfico no período e filtros selecionados.")
     else:
         df_chart = pd.DataFrame(grafico_raw)
-        
+
         # Mapeando os valores booleanos para labels legíveis
         mapa_deslocamento = {
-            True: 'Deslocados (Origem Externa)', 
-            False: 'Residentes (Demanda Interna)', 
+            True: 'Deslocados (Origem Externa)',
+            False: 'Residentes (Demanda Interna)',
             None: 'Deslocamento Indeterminado'
         }
         df_chart['Tipo'] = df_chart['deslocou'].map(mapa_deslocamento)
-        
+
         # Formatando para pivot table (Mês no eixo X, Tipos nas colunas, Total nos valores)
         df_pivot = df_chart.pivot_table(index='mes', columns='Tipo', values='total', fill_value=0)
-        
+
         # Renderiza o gráfico nativo do Streamlit
         st.line_chart(df_pivot, height=350, use_container_width=True)
+
+
+def render_dashboard_section():
+    token = st.session_state.get("token")
+    if not token:
+        st.warning("É necessário estar autenticado para visualizar o dashboard.")
+        return
+
+    _inject_styles()
+    municipios, vacinas = _carregar_dados_apoio(token)
+
+    st.markdown('<div class="page-title">📊 Visão Geral do Ceará</div>', unsafe_allow_html=True)
+    st.markdown('<div class="page-subtitle">Indicadores agregados de imunização e mobilidade vacinal.</div>', unsafe_allow_html=True)
+
+    _render_visao_geral(token, municipios, vacinas)
+
+    st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
+    st.markdown('<div class="card-title">🏆 Ranking de municípios-polo e de evasão</div>', unsafe_allow_html=True)
+    render_fluxo_ranking_section()
+
 
 if __name__ == "__main__":
     render_dashboard_section()

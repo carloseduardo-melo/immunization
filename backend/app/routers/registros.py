@@ -15,6 +15,7 @@ from app.schemas import (
     RegistroVacinacaoOut,
     RegistroVacinacaoUpdate,
 )
+from app.sql_views import marcar_fluxo_desatualizado
 
 router = APIRouter(prefix="/registros", tags=["Registros"])
 
@@ -85,6 +86,9 @@ def listar_registros(
     vacina, faixa de data, faixa de idade e status do dado."""
     if page < 1: page = 1
     if page_size < 1: page_size = 10
+    # Teto igual ao de /municipios e /vacinas: sem ele, um page_size grande
+    # traria centenas de milhares de registros numa única resposta.
+    if page_size > 100: page_size = 100
 
     MunicipioResidencia = aliased(Municipio)
 
@@ -217,6 +221,8 @@ def criar_registro(
     db.add(novo_registro)
     db.commit()
     db.refresh(novo_registro)
+    marcar_fluxo_desatualizado(db)
+    db.commit()
 
     return RegistroVacinacaoOut(
         id=novo_registro.id,
@@ -288,7 +294,9 @@ def atualizar_registro(
     db.add(log)
     db.commit()
     db.refresh(registro)
-    
+    marcar_fluxo_desatualizado(db)
+    db.commit()
+
     mun_vac = _buscar_municipio(db, registro.municipio_vacina_id)
     mun_res = _buscar_municipio(db, registro.municipio_residencia_id) if registro.municipio_residencia_id else None
     vac = db.query(Vacina).filter(Vacina.id == registro.vacina_id).first() if registro.vacina_id else None
@@ -344,6 +352,8 @@ def excluir_registro(
     )
 
     db.add(log)
+    db.commit()
+    marcar_fluxo_desatualizado(db)
     db.commit()
 
     return None

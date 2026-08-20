@@ -9,9 +9,8 @@ from api_client import (
     criar_registro,
     desativar_registro,
     listar_registros,
-    listar_todos_municipios,
-    listar_vacinas,
 )
+from data_cache import listar_municipios_resumido, listar_vacinas_resumido
 from theme import badge_html as _badge_html
 
 
@@ -35,17 +34,25 @@ def _init_session_state():
 
 
 def carregar_dados_apoio(token: str):
-    """Carrega municípios e vacinas para preencher os dropdowns (apenas uma vez)."""
+    """Preenche os dropdowns a partir do cache compartilhado (ver data_cache).
+
+    A lista completa de municípios exige ~39 requisições paginadas à API. Ela
+    continua exposta em `st.session_state` no formato de dicionários porque o
+    restante desta tela lê `m["nome"]`/`m["id_ibge"]`, mas quem paga o custo da
+    rede agora é o cache, não cada rerun.
+    """
     if not st.session_state["dados_municipios"]:
         try:
-            muns = listar_todos_municipios(token)
-            st.session_state["dados_municipios"] = muns
+            st.session_state["dados_municipios"] = [
+                {"id_ibge": mid, "nome": nome} for mid, nome in listar_municipios_resumido(token)
+            ]
         except ApiError:
             pass
     if not st.session_state["dados_vacinas"]:
         try:
-            vacs = listar_vacinas(token, page_size=1000).get("items", [])
-            st.session_state["dados_vacinas"] = vacs
+            st.session_state["dados_vacinas"] = [
+                {"id": vid, "nome": nome} for vid, nome in listar_vacinas_resumido(token)
+            ]
         except ApiError:
             pass
 
@@ -330,10 +337,10 @@ def _render_lista(token: str):
         c_info, c_space, c_prev, c_next = st.columns([6, 3, 0.5, 0.5])
         c_info.caption(f"Mostrando {len(itens)} de {total} registros")
         
-        if c_prev.button("\<", disabled=page <= 1, key="prev_reg", use_container_width=True):
+        if c_prev.button("\\<", disabled=page <= 1, key="prev_reg", use_container_width=True):
             st.session_state["reg_page"] = page - 1
             st.rerun()
-        if c_next.button("\>", disabled=page >= total_pages, key="next_reg", use_container_width=True):
+        if c_next.button("\\>", disabled=page >= total_pages, key="next_reg", use_container_width=True):
             st.session_state["reg_page"] = page + 1
             st.rerun()
 

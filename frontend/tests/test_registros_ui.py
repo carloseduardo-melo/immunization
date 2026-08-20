@@ -39,15 +39,15 @@ def _resultado_vazio():
     return {"items": [], "total": 0, "page": 1, "page_size": 5, "total_pages": 0}
 
 
-@patch("registros_ui.listar_vacinas")
-@patch("registros_ui.listar_todos_municipios")
+@patch("registros_ui.listar_vacinas_resumido")
+@patch("registros_ui.listar_municipios_resumido")
 @patch("registros_ui.listar_registros")
 def test_selecionar_filtro_municipio_repassa_municipio_id_para_api(
     mock_listar_registros, mock_listar_municipios, mock_listar_vacinas
 ):
     mock_listar_registros.return_value = _resultado_vazio()
-    mock_listar_municipios.return_value = [{"nome": "Fortaleza", "id_ibge": "2304400"}]
-    mock_listar_vacinas.return_value = {"items": []}
+    mock_listar_municipios.return_value = [("2304400", "Fortaleza")]
+    mock_listar_vacinas.return_value = []
 
     at = AppTest.from_file("app.py")
     at.session_state["token"] = "faketoken"
