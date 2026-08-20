@@ -241,3 +241,170 @@ def test_recalcular_sem_token_retorna_401():
     resposta = client.post("/completude/recalcular")
 
     assert resposta.status_code == 401
+
+
+def _alerta(db_session, ano=2024, mes=9, municipio_id="2304400", status="ABERTO", total=10):
+    alerta = AlertaCompletude(
+        referencia_ano=ano,
+        referencia_mes=mes,
+        municipio_id=municipio_id,
+        total_observado=total,
+        status=status,
+    )
+    db_session.add(alerta)
+    db_session.commit()
+    db_session.refresh(alerta)
+    return alerta
+
+
+def test_listar_alertas_retorna_itens_com_nome_do_municipio(db_session):
+    _municipio(db_session)
+    _alerta(db_session)
+    headers = _headers(db_session)
+
+    resposta = client.get("/completude/alertas", headers=headers)
+
+    assert resposta.status_code == 200
+    corpo = resposta.json()
+    assert corpo["total"] == 1
+    assert corpo["items"][0]["municipio_nome"] == "Fortaleza"
+    assert corpo["items"][0]["status"] == "ABERTO"
+    assert corpo["totais_por_status"]["ABERTO"] == 1
+    assert corpo["totais_por_status"]["RESOLVIDO"] == 0
+    assert corpo["municipios_afetados"] == 1
+
+
+def test_listar_alertas_sem_municipio_vinculado(db_session):
+    _alerta(db_session, municipio_id=None)
+    headers = _headers(db_session)
+
+    resposta = client.get("/completude/alertas", headers=headers)
+
+    assert resposta.json()["items"][0]["municipio_nome"] is None
+
+
+def test_listar_alertas_filtra_por_status(db_session):
+    _municipio(db_session)
+    _alerta(db_session, mes=9, status="ABERTO")
+    _alerta(db_session, mes=10, status="RESOLVIDO")
+    headers = _headers(db_session)
+
+    resposta = client.get("/completude/alertas", params={"status": "RESOLVIDO"}, headers=headers)
+
+    corpo = resposta.json()
+    assert corpo["total"] == 1
+    assert corpo["items"][0]["referencia_mes"] == 10
+    # Os KPIs ignoram o filtro de status: continuam contando os dois alertas.
+    assert corpo["totais_por_status"]["ABERTO"] == 1
+    assert corpo["totais_por_status"]["RESOLVIDO"] == 1
+
+
+def test_listar_alertas_filtra_por_municipio_e_ano(db_session):
+    _municipio(db_session)
+    _municipio(db_session, "2303709", "Caucaia")
+    _alerta(db_session, ano=2024, mes=9, municipio_id="2304400")
+    _alerta(db_session, ano=2023, mes=9, municipio_id="2303709")
+    headers = _headers(db_session)
+
+    por_municipio = client.get(
+        "/completude/alertas", params={"municipio_id": "2303709"}, headers=headers
+    ).json()
+    por_ano = client.get("/completude/alertas", params={"ano": 2024}, headers=headers).json()
+
+    assert por_municipio["total"] == 1
+    assert por_municipio["items"][0]["municipio_id"] == "2303709"
+    assert por_ano["total"] == 1
+    assert por_ano["items"][0]["referencia_ano"] == 2024
+
+
+def test_listar_alertas_ordena_do_mais_recente_para_o_mais_antigo(db_session):
+    _municipio(db_session)
+    _alerta(db_session, ano=2023, mes=5)
+    _alerta(db_session, ano=2024, mes=2)
+    _alerta(db_session, ano=2024, mes=9)
+    headers = _headers(db_session)
+
+    itens = client.get("/completude/alertas", headers=headers).json()["items"]
+
+    assert [(i["referencia_ano"], i["referencia_mes"]) for i in itens] == [
+        (2024, 9),
+        (2024, 2),
+        (2023, 5),
+    ]
+
+
+def test_listar_alertas_pagina_e_normaliza_parametros_invalidos(db_session):
+    _municipio(db_session)
+    for mes in range(1, 13):
+        _alerta(db_session, mes=mes)
+    headers = _headers(db_session)
+
+    pagina = client.get(
+        "/completude/alertas", params={"page": 0, "page_size": 0}, headers=headers
+    ).json()
+    teto = client.get("/completude/alertas", params={"page_size": 500}, headers=headers).json()
+
+    assert pagina["page"] == 1
+    assert pagina["page_size"] == 10
+    assert pagina["total"] == 12
+    assert pagina["total_pages"] == 2
+    assert len(pagina["items"]) == 10
+    assert teto["page_size"] == 100
+
+
+def test_listar_alertas_vazio_tem_zero_paginas(db_session):
+    headers = _headers(db_session)
+
+    corpo = client.get("/completude/alertas", headers=headers).json()
+
+    assert corpo["total"] == 0
+    assert corpo["total_pages"] == 0
+    assert corpo["municipios_afetados"] == 0
+
+
+def test_gestor_estadual_ve_todos_os_alertas(db_session):
+    _municipio(db_session)
+    _municipio(db_session, "2303709", "Caucaia")
+    _alerta(db_session, municipio_id="2304400")
+    _alerta(db_session, municipio_id="2303709")
+    headers = _headers(db_session, role="GESTOR_ESTADUAL", email="estadual@example.com")
+
+    assert client.get("/completude/alertas", headers=headers).json()["total"] == 2
+
+
+def test_gestor_municipal_ve_apenas_o_municipio_alocado(db_session):
+    _municipio(db_session)
+    _municipio(db_session, "2303709", "Caucaia")
+    _alerta(db_session, municipio_id="2304400")
+    _alerta(db_session, municipio_id="2303709")
+    headers = _headers(
+        db_session,
+        role="GESTOR_MUNICIPAL",
+        email="municipal@example.com",
+        municipio_id="2303709",
+    )
+
+    corpo = client.get("/completude/alertas", headers=headers).json()
+
+    assert corpo["total"] == 1
+    assert corpo["items"][0]["municipio_id"] == "2303709"
+
+
+def test_gestor_municipal_nao_consulta_outro_municipio(db_session):
+    _municipio(db_session)
+    headers = _headers(
+        db_session,
+        role="GESTOR_MUNICIPAL",
+        email="municipal@example.com",
+        municipio_id="2303709",
+    )
+
+    resposta = client.get(
+        "/completude/alertas", params={"municipio_id": "2304400"}, headers=headers
+    )
+
+    assert resposta.status_code == 403
+
+
+def test_listar_alertas_sem_token_retorna_401():
+    assert client.get("/completude/alertas").status_code == 401
