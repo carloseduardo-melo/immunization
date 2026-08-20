@@ -1,12 +1,12 @@
 """RF15 (varredura de completude) e RF16 (gestão de status dos alertas)."""
 
 from math import ceil
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status as http_status
+from fastapi import APIRouter, Depends, HTTPException, Query, status as http_status
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.dependencies import get_admin_only, get_current_user, validate_municipio_scope
@@ -31,7 +31,7 @@ PAGE_SIZE_MAXIMO = 100
     },
 )
 def recalcular_completude(
-    k: float = K_PADRAO,
+    k: float = Query(K_PADRAO, gt=0, le=10),
     db: Session = Depends(get_db),
     current_user=Depends(get_admin_only),
 ):
@@ -63,7 +63,7 @@ def _alerta_out(alerta: AlertaCompletude) -> AlertaCompletudeOut:
     responses={401: {"description": "Token ausente ou inválido."}},
 )
 def listar_alertas(
-    status: Optional[str] = None,
+    status: Optional[Literal["ABERTO", "INVESTIGANDO", "RESOLVIDO", "FALSO_POSITIVO"]] = None,
     municipio_id: Optional[str] = None,
     ano: Optional[int] = None,
     page: int = 1,
@@ -112,9 +112,12 @@ def listar_alertas(
     total = query.count()
     total_pages = ceil(total / page_size) if total else 0
     linhas = (
-        query.order_by(
+        # joinedload evita um SELECT extra por linha para resolver municipio.nome.
+        query.options(joinedload(AlertaCompletude.municipio))
+        .order_by(
             AlertaCompletude.referencia_ano.desc(),
             AlertaCompletude.referencia_mes.desc(),
+            AlertaCompletude.id,
         )
         .offset((page - 1) * page_size)
         .limit(page_size)

@@ -26,6 +26,11 @@ PAGE_SIZE = 10
 def _init_state():
     if "completude_page" not in st.session_state:
         st.session_state["completude_page"] = 1
+    if "completude_filtros_anteriores" not in st.session_state:
+        # Mesma trinca (status, municipio_id, ano) que _render_filtros produz
+        # com os valores padrão dos widgets (Todos / Todos / 0), para o
+        # primeiro render não disparar um reset de página espúrio.
+        st.session_state["completude_filtros_anteriores"] = (None, None, None)
 
 
 def _municipios(token):
@@ -56,13 +61,23 @@ def _render_filtros(municipios):
         )
         ano = int(ano) or None
 
+    # Trocar qualquer filtro invalida a página atual — senão o usuário pode
+    # ficar preso numa página que não existe mais para o novo recorte.
+    filtros_atuais = (status, municipio_id, ano)
+    if st.session_state["completude_filtros_anteriores"] != filtros_atuais:
+        st.session_state["completude_filtros_anteriores"] = filtros_atuais
+        st.session_state["completude_page"] = 1
+
     return status, municipio_id, ano
 
 
 def _render_kpis(pagina):
     totais = pagina["totais_por_status"]
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total de alertas", pagina["total"])
+    # totais_por_status já ignora o filtro de status (é o recorte inteiro); o
+    # primeiro KPI usa a mesma base, senão os quatro números não fecham entre
+    # si quando um filtro de status está aplicado.
+    col1.metric("Total de alertas", sum(totais.values()))
     col2.metric("Abertos", totais["ABERTO"])
     col3.metric("Em investigação", totais["INVESTIGANDO"])
     col4.metric("Municípios afetados", pagina["municipios_afetados"])
@@ -101,7 +116,7 @@ def _render_botao_varredura(token):
     except ApiError as exc:
         st.error(f"Erro ao executar a varredura: {exc.message}")
         return
-    st.cache_data.clear()
+    alertas_completude.clear()
     st.success(
         f"Varredura concluída: {resultado['alertas_criados']} alerta(s) criado(s) e "
         f"{resultado['alertas_atualizados']} atualizado(s) em "
@@ -128,7 +143,7 @@ def _render_acao_status(coluna, token, alerta):
     except ApiError as exc:
         st.error(f"Erro ao atualizar o alerta: {exc.message}")
         return
-    st.cache_data.clear()
+    alertas_completude.clear()
     st.rerun()
 
 

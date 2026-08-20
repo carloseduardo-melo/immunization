@@ -69,9 +69,11 @@ def test_tela_mostra_os_kpis(mock_alertas, mock_municipios):
     at = _abrir().run()
 
     assert not at.exception
-    rotulos = [m.label for m in at.metric]
-    assert "Total de alertas" in rotulos
-    assert "Municípios afetados" in rotulos
+    valores = {m.label: str(m.value) for m in at.metric}
+    assert valores["Total de alertas"] == "1"
+    assert valores["Abertos"] == "1"
+    assert valores["Em investigação"] == "0"
+    assert valores["Municípios afetados"] == "1"
 
 
 @patch("completude_ui.listar_municipios_resumido")
@@ -100,6 +102,21 @@ def test_filtro_de_municipio_e_ano_sao_repassados(mock_alertas, mock_municipios)
     assert not at.exception
     assert mock_alertas.call_args.kwargs["municipio_id"] == "2304400"
     assert mock_alertas.call_args.kwargs["ano"] == 2024
+
+
+@patch("completude_ui.listar_municipios_resumido")
+@patch("completude_ui.alertas_completude")
+def test_trocar_filtro_reseta_a_pagina_para_1(mock_alertas, mock_municipios):
+    mock_alertas.return_value = _pagina_alertas()
+    mock_municipios.return_value = _MUNICIPIOS
+
+    at = _abrir().run()
+    at.session_state["completude_page"] = 3
+
+    at.selectbox(key="completude_status").select("Resolvido").run()
+
+    assert not at.exception
+    assert mock_alertas.call_args.kwargs["page"] == 1
 
 
 @patch("completude_ui.listar_municipios_resumido")
@@ -188,13 +205,20 @@ def test_paginacao_avanca_e_volta(mock_alertas, mock_municipios):
     assert mock_alertas.call_args.kwargs["page"] == 1
 
 
-def test_tela_sem_token_avisa_e_nao_consulta():
+@patch("completude_ui.alertas_completude")
+@patch("completude_ui.st.warning")
+def test_tela_sem_token_avisa_e_nao_consulta(mock_warning, mock_alertas):
     import streamlit as st
 
     import completude_ui
 
     st.session_state.clear()
     completude_ui.render_completude_section()
+
+    mock_warning.assert_called_once_with(
+        "É necessário estar autenticado para visualizar os alertas."
+    )
+    mock_alertas.assert_not_called()
 
 
 @patch("completude_ui.recalcular_completude")
@@ -215,7 +239,10 @@ def test_admin_dispara_a_varredura(mock_alertas, mock_municipios, mock_recalcula
 
     assert not at.exception
     assert mock_recalcular.called
-    assert any("2" in (s.value or "") for s in at.success)
+    mensagem_esperada = (
+        "Varredura concluída: 2 alerta(s) criado(s) e 1 atualizado(s) em 5 município(s)."
+    )
+    assert any(mensagem_esperada in (s.value or "") for s in at.success)
 
 
 @patch("completude_ui.recalcular_completude")

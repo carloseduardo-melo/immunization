@@ -13,13 +13,13 @@ class ApiError(Exception):
         self.status_code = status_code
 
 
-def _request(method: str, path: str, token: str, **kwargs) -> Any:
+def _request(method: str, path: str, token: str, timeout: int = 10, **kwargs) -> Any:
     try:
         response = requests.request(
             method,
             f"{API_URL}{path}",
             headers={"Authorization": f"Bearer {token}"},
-            timeout=10,
+            timeout=timeout,
             **kwargs,
         )
     except requests.exceptions.ConnectionError:
@@ -218,4 +218,6 @@ def atualizar_status_alerta(token: str, alerta_id: str, novo_status: str) -> dic
 
 
 def recalcular_completude(token: str, k: float = 2.0) -> dict:
-    return _request("POST", "/completude/recalcular", token, params={"k": k})
+    # A varredura agrega milhões de registros; o timeout padrão de 10s estoura
+    # antes dela terminar na base real, então usamos um teto maior aqui.
+    return _request("POST", "/completude/recalcular", token, params={"k": k}, timeout=120)

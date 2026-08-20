@@ -172,6 +172,39 @@ def test_reexecutar_nao_duplica_e_preserva_status_tratado(db_session):
     assert resultado.alertas_atualizados == 1
 
 
+def test_registro_inativo_nao_conta_na_completude(db_session):
+    _municipio(db_session)
+    _serie(
+        db_session,
+        "2304400",
+        {
+            (2024, 1): 100,
+            (2024, 2): 100,
+            (2024, 3): 100,
+            (2024, 4): 100,
+            (2024, 5): 100,
+            (2024, 6): 10,
+        },
+    )
+    # Registro inativo no mesmo mês da queda: se contasse, o total observado
+    # subiria bem acima do limite inferior e o alerta não seria gerado.
+    db_session.add(
+        RegistroVacinacao(
+            data_vacinacao=date(2024, 6, 20),
+            municipio_vacina_id="2304400",
+            quantidade=1000,
+            ativo=False,
+        )
+    )
+    db_session.commit()
+
+    resultado = detectar_anomalias(db_session)
+
+    alerta = db_session.query(AlertaCompletude).one()
+    assert alerta.total_observado == 10
+    assert resultado.alertas_criados == 1
+
+
 def test_recalcular_como_admin_retorna_contadores(db_session):
     _municipio(db_session)
     _serie(
@@ -214,6 +247,15 @@ def test_recalcular_aceita_k_customizado(db_session):
 
     assert resposta.status_code == 200
     assert resposta.json()["alertas_criados"] == 0
+
+
+@pytest.mark.parametrize("k_invalido", [0, -1])
+def test_recalcular_k_fora_do_intervalo_retorna_422(db_session, k_invalido):
+    headers = _headers(db_session)
+
+    resposta = client.post("/completude/recalcular", params={"k": k_invalido}, headers=headers)
+
+    assert resposta.status_code == 422
 
 
 def test_recalcular_negado_para_gestor_estadual(db_session):
@@ -300,6 +342,23 @@ def test_listar_alertas_filtra_por_status(db_session):
     assert corpo["totais_por_status"]["RESOLVIDO"] == 1
 
 
+def test_listar_alertas_status_invalido_retorna_422(db_session):
+    headers = _headers(db_session)
+
+    resposta = client.get("/completude/alertas", params={"status": "FOO"}, headers=headers)
+
+    assert resposta.status_code == 422
+
+
+@pytest.mark.parametrize("valor", ["ABERTO", "INVESTIGANDO", "RESOLVIDO", "FALSO_POSITIVO"])
+def test_listar_alertas_aceita_cada_status_valido(db_session, valor):
+    headers = _headers(db_session)
+
+    resposta = client.get("/completude/alertas", params={"status": valor}, headers=headers)
+
+    assert resposta.status_code == 200
+
+
 def test_listar_alertas_filtra_por_municipio_e_ano(db_session):
     _municipio(db_session)
     _municipio(db_session, "2303709", "Caucaia")
@@ -332,6 +391,25 @@ def test_listar_alertas_ordena_do_mais_recente_para_o_mais_antigo(db_session):
         (2024, 2),
         (2023, 5),
     ]
+
+
+def test_listar_alertas_paginacao_estavel_com_empate_de_ano_e_mes(db_session):
+    """Vários alertas no mesmo (ano, mês) — sem desempate por id, a mesma
+    linha pode aparecer em duas páginas ou nunca aparecer."""
+    _municipio(db_session)
+    ids_criados = {str(_alerta(db_session, mes=9, total=i).id) for i in range(1, 5)}
+    headers = _headers(db_session)
+
+    pagina1 = client.get(
+        "/completude/alertas", params={"page": 1, "page_size": 2}, headers=headers
+    ).json()
+    pagina2 = client.get(
+        "/completude/alertas", params={"page": 2, "page_size": 2}, headers=headers
+    ).json()
+
+    ids_retornados = [item["id"] for item in pagina1["items"] + pagina2["items"]]
+    assert len(ids_retornados) == len(set(ids_retornados)) == 4
+    assert set(ids_retornados) == ids_criados
 
 
 def test_listar_alertas_pagina_e_normaliza_parametros_invalidos(db_session):
@@ -389,6 +467,30 @@ def test_gestor_municipal_ve_apenas_o_municipio_alocado(db_session):
 
     assert corpo["total"] == 1
     assert corpo["items"][0]["municipio_id"] == "2303709"
+
+
+def test_gestor_municipal_pode_consultar_o_proprio_municipio(db_session):
+    """Caminho de permissão de validate_municipio_scope: pedir explicitamente
+    o próprio municipio_alocado_id não é bloqueado."""
+    _municipio(db_session)
+    _municipio(db_session, "2303709", "Caucaia")
+    _alerta(db_session, municipio_id="2304400")
+    _alerta(db_session, municipio_id="2303709")
+    headers = _headers(
+        db_session,
+        role="GESTOR_MUNICIPAL",
+        email="municipal@example.com",
+        municipio_id="2304400",
+    )
+
+    resposta = client.get(
+        "/completude/alertas", params={"municipio_id": "2304400"}, headers=headers
+    )
+
+    assert resposta.status_code == 200
+    corpo = resposta.json()
+    assert corpo["total"] == 1
+    assert corpo["items"][0]["municipio_id"] == "2304400"
 
 
 def test_gestor_municipal_nao_consulta_outro_municipio(db_session):

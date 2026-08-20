@@ -9,6 +9,25 @@ A agregação por (município, ano, mês) acontece no banco, reduzindo milhões 
 registros a alguns milhares de linhas; média e desvio são calculados em Python
 porque o SQLite (usado nos testes) não tem `stddev`, e o mesmo código precisa
 rodar em PostgreSQL na produção.
+
+Limitações conhecidas da regra `média − k·pstdev` (medidas na revisão final,
+decisões conscientes de projeto, não bugs):
+
+1. Séries curtas com múltiplas lacunas ficam mudas. Cada mês zerado puxa a
+   média para baixo e infla o desvio, então quanto pior a completude, menor a
+   chance de qualquer alerta ser emitido. Medido: 9×100 + 3 zeros em 12 meses
+   não gera alerta nenhum. Com a série longa da base real (~60 meses) o efeito
+   é benigno — até 8 meses zerados em 60 são detectados corretamente.
+2. Município que parou de enviar dados nunca gera alerta.
+   `_preencher_meses_ausentes` só preenche dentro do intervalo
+   `[primeiro, último]` observado, então os últimos meses ausentes não entram
+   na série. Está conforme o spec, mas é a falha de completude mais grave
+   possível e precisa ser decisão consciente, não descoberta na defesa.
+3. `minimo_meses = 3` é inerte com `k = 2.0`. Com desvio populacional, o
+   z-score máximo de um ponto numa série de `n` é `(n−1)/√n`, que só ultrapassa
+   2 a partir de `n = 6`. Séries de 3 a 5 meses nunca geram alerta, mas contam
+   em `municipios_analisados`. Não mude o valor de `MINIMO_MESES` por causa
+   disso — é só documentação da propriedade.
 """
 
 from collections import defaultdict

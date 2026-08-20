@@ -14,6 +14,18 @@ def test_listar_alertas_envia_apenas_os_filtros_preenchidos(mock_request):
 
 
 @patch("api_client._request")
+def test_listar_alertas_sem_status_nao_envia_o_filtro(mock_request):
+    mock_request.return_value = {"items": []}
+
+    listar_alertas_completude("tk")
+
+    _, kwargs = mock_request.call_args
+    assert "status" not in kwargs["params"]
+    assert "municipio_id" not in kwargs["params"]
+    assert "ano" not in kwargs["params"]
+
+
+@patch("api_client._request")
 def test_listar_alertas_com_todos_os_filtros(mock_request):
     mock_request.return_value = {"items": []}
 
@@ -45,3 +57,15 @@ def test_recalcular_envia_o_k(mock_request):
     args, kwargs = mock_request.call_args
     assert args[0] == "POST"
     assert kwargs["params"] == {"k": 3.0}
+
+
+@patch("api_client._request")
+def test_recalcular_usa_timeout_maior_que_o_padrao(mock_request):
+    # A varredura agrega milhões de registros e fica perto do teto padrão de
+    # 10s na base real; precisa de um timeout maior.
+    mock_request.return_value = {"alertas_criados": 0}
+
+    recalcular_completude("tk")
+
+    _, kwargs = mock_request.call_args
+    assert kwargs["timeout"] == 120
