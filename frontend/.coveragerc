@@ -1,0 +1,15 @@
+# O coverage.py não lê seções [coverage:*] de pytest.ini; por isso a
+# configuração de medição do frontend fica neste arquivo.
+[run]
+source = .
+omit =
+    tests/*
+    */site-packages/*
+    setup.py
+
+[report]
+show_missing = True
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
+    raise AssertionError

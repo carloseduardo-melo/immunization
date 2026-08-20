@@ -148,3 +148,43 @@ def obter_resumo_dashboard(token: str, municipio_id: str = None, vacina_id: int 
     if ano:
         params["ano"] = ano
     return _request("GET", "/dashboard/resumo", token, params=params)
+
+
+# --- FLUXO INTERMUNICIPAL (RF13 & RF14) ---
+
+def obter_fluxo_intermunicipal(
+    token: str,
+    vacina_id: Optional[int] = None,
+    data_inicio: Optional[str] = None,
+    data_fim: Optional[str] = None,
+    municipio_id: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 25,
+) -> dict:
+    params: dict[str, Any] = {"page": page, "page_size": page_size}
+    if vacina_id:
+        params["vacina_id"] = vacina_id
+    if data_inicio:
+        params["data_inicio"] = data_inicio
+    if data_fim:
+        params["data_fim"] = data_fim
+    if municipio_id:
+        params["municipio_id"] = municipio_id
+    return _request("GET", "/fluxo/intermunicipal", token, params=params)
+
+
+def obter_ranking_fluxo(
+    token: str,
+    vacina_id: Optional[int] = None,
+    data_inicio: Optional[str] = None,
+    data_fim: Optional[str] = None,
+    limit: int = 10,
+) -> dict:
+    params: dict[str, Any] = {"limit": limit}
+    if vacina_id:
+        params["vacina_id"] = vacina_id
+    if data_inicio:
+        params["data_inicio"] = data_inicio
+    if data_fim:
+        params["data_fim"] = data_fim
+    return _request("GET", "/fluxo/ranking", token, params=params)

@@ -1,11 +1,15 @@
 import pandas as pd
 import uuid
 import os
+import sys
 import time
 import logging
 from sqlalchemy import create_engine, text, String, Integer, Boolean
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from dotenv import load_dotenv
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'backend'))
+from app.sql_views import create_controle_sql, create_indexes_sql, create_view_sql  # noqa: E402
 
 # 1. Configuração do Log de Execução do ETL (Critério de Aceite)
 log_path = os.path.join(os.path.dirname(__file__), 'etl_execucao.log')
@@ -265,6 +269,20 @@ def processar_etl():
                 raise ValueError(erro_msg)
             
             logging.info(f"✅ VALIDAÇÃO COM SUCESSO: A soma no banco ({total_banco}) corresponde exatamente a 100% das linhas do CSV.")
+
+            # ---------------------------------------------------------
+            # PASSO 5: RECRIA A VIEW DE FLUXO INTERMUNICIPAL (RF13/RF14)
+            # ---------------------------------------------------------
+            # O DROP TABLE ... CASCADE do Passo 3 (garantir_tabelas_alvo)
+            # derruba a mv_fluxo_intermunicipal junto com registros_vacinacao,
+            # então ela precisa ser recriada aqui com os dados já carregados.
+            logging.info("🧮 Passo 5: Recriando a view de fluxo intermunicipal...")
+            conn.execute(text(create_view_sql("postgresql")))
+            for sql in create_indexes_sql("postgresql"):
+                conn.execute(text(sql))
+            for sql in create_controle_sql("postgresql"):
+                conn.execute(text(sql))
+            logging.info("   View mv_fluxo_intermunicipal recriada (com índices).")
 
     except Exception as e:
         logging.error("🚨 Ocorreu um erro crítico durante a carga. Transação revertida (ROLLBACK efetuado).")

@@ -36,6 +36,7 @@ def test_lista_municipios_carrega_e_exibe_dados(mock_listar):
     at.session_state["token"] = "faketoken"
     at.session_state["role"] = "ADMIN"
     at.session_state["municipio_id"] = None
+    at.session_state["pagina_ativa"] = "municipios"
     at.run()
 
     assert not at.exception
@@ -50,6 +51,7 @@ def test_lista_municipios_estado_vazio(mock_listar):
     at.session_state["token"] = "faketoken"
     at.session_state["role"] = "GESTOR_MUNICIPAL"
     at.session_state["municipio_id"] = "2304400"
+    at.session_state["pagina_ativa"] = "municipios"
     at.run()
 
     assert not at.exception

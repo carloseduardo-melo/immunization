@@ -5,6 +5,7 @@ import requests
 from streamlit_cookies_controller import CookieController
 
 from api_client import ApiError, obter_me
+from fluxo_ui import render_fluxo_intermunicipal_section
 from municipios_ui import render_municipios_section
 from registros_ui import render_registros_section
 from ui_dashboard import render_dashboard_section  # <-- IMPORTAÇÃO DO DASHBOARD
@@ -523,6 +524,7 @@ else:
     # O Dashboard passa a ser a primeira opção do menu
     PAGINAS = {
         "dashboard": "📊 Dashboard Geral",
+        "fluxo": "🔀 Fluxo Intermunicipal",
         "registros": "💉 Registros de Vacinação",
         "municipios": "🏙️ Gestão de Municípios & Vacinas",
     }
@@ -577,6 +579,8 @@ else:
     # Roteamento central das páginas
     if st.session_state["pagina_ativa"] == "dashboard":
         render_dashboard_section()
+    elif st.session_state["pagina_ativa"] == "fluxo":
+        render_fluxo_intermunicipal_section()
     elif st.session_state["pagina_ativa"] == "municipios":
         render_municipios_section()
     else:

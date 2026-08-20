@@ -9,6 +9,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.database import Base, get_db
 from app.main import app
+from app.sql_views import ensure_fluxo_view
 
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 connect_args = {}
@@ -25,6 +26,8 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 @pytest.fixture(scope="session", autouse=True)
 def initialize_test_database():
     Base.metadata.create_all(bind=engine)
+    with engine.begin() as conn:
+        ensure_fluxo_view(conn)
     yield
     engine.dispose()
 

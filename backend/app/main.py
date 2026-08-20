@@ -10,6 +10,7 @@ from app.routers.municipios import router as municipios_router
 from app.routers.registros import router as registros_router
 from app.routers.vacinas import router as vacinas_router
 from app.routers.dashboard import router as dashboard_router
+from app.routers.fluxo import router as fluxo_router
 from app.security import ALGORITHM, SECRET_KEY
 
 API_DESCRIPTION = """
@@ -48,6 +49,10 @@ OPENAPI_TAGS = [
     {
         "name": "Dashboard",
         "description": "Indicadores agregados (KPIs e série temporal) a partir dos registros ativos.",
+    },
+    {
+        "name": "Fluxo Intermunicipal",
+        "description": "Mobilidade vacinal origem x destino e ranking de municípios-polo/evasão, a partir da view mv_fluxo_intermunicipal.",
     },
 ]
 
@@ -88,7 +93,7 @@ async def auth_middleware(request: Request, call_next):
             content={"detail": "Token ausente ou inválido."},
         )
 
-    if email is None:
+    if email is None:  # pragma: no cover - já garantido no bloco try acima
         return JSONResponse(
             status_code=401,
             content={"detail": "Token ausente ou inválido."},
@@ -103,6 +108,7 @@ app.include_router(municipios_router)
 app.include_router(vacinas_router)
 app.include_router(registros_router)
 app.include_router(dashboard_router)
+app.include_router(fluxo_router)
 
 @app.get("/health")
 def health_check():
@@ -110,6 +116,6 @@ def health_check():
 
 
 @app.on_event("startup")
-def on_startup():
+def on_startup():  # pragma: no cover - desligado sob pytest (TESTING=1)
     if os.getenv("TESTING") != "1":
         init_db()

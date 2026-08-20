@@ -183,3 +183,74 @@ def test_criar_registro_sucesso(mock_request):
     assert mock_request.call_args.args[1] == "http://localhost:8000/registros"
 
 
+# --- FLUXO INTERMUNICIPAL (RF13 & RF14) ---
+
+@patch("api_client.requests.request")
+def test_obter_fluxo_intermunicipal_monta_query_params(mock_request):
+    from api_client import obter_fluxo_intermunicipal
+
+    mock_request.return_value = _mock_response(200, {"items": []})
+
+    resultado = obter_fluxo_intermunicipal(
+        "token123",
+        vacina_id=1,
+        data_inicio="2024-01-01",
+        data_fim="2024-12-31",
+        municipio_id="2304400",
+        page=2,
+        page_size=50,
+    )
+
+    assert resultado["items"] == []
+    called_kwargs = mock_request.call_args.kwargs
+    assert called_kwargs["params"] == {
+        "page": 2,
+        "page_size": 50,
+        "vacina_id": 1,
+        "data_inicio": "2024-01-01",
+        "data_fim": "2024-12-31",
+        "municipio_id": "2304400",
+    }
+    assert mock_request.call_args.args[1] == "http://localhost:8000/fluxo/intermunicipal"
+
+
+@patch("api_client.requests.request")
+def test_obter_fluxo_intermunicipal_sempre_pagina(mock_request):
+    """Sem filtros, a chamada ainda precisa enviar page/page_size — nunca pedir
+    o conjunto completo de pares."""
+    from api_client import obter_fluxo_intermunicipal
+
+    mock_request.return_value = _mock_response(200, {"items": []})
+
+    obter_fluxo_intermunicipal("token123")
+
+    called_kwargs = mock_request.call_args.kwargs
+    assert called_kwargs["params"] == {"page": 1, "page_size": 25}
+
+
+@patch("api_client.requests.request")
+def test_obter_ranking_fluxo_monta_query_params(mock_request):
+    from api_client import obter_ranking_fluxo
+
+    mock_request.return_value = _mock_response(200, {"top_polo": [], "top_evasao": []})
+
+    resultado = obter_ranking_fluxo("token123", vacina_id=2, limit=5)
+
+    assert resultado["top_polo"] == []
+    called_kwargs = mock_request.call_args.kwargs
+    assert called_kwargs["params"] == {"limit": 5, "vacina_id": 2}
+    assert mock_request.call_args.args[1] == "http://localhost:8000/fluxo/ranking"
+
+
+@patch("api_client.requests.request")
+def test_obter_ranking_fluxo_usa_limit_padrao(mock_request):
+    from api_client import obter_ranking_fluxo
+
+    mock_request.return_value = _mock_response(200, {"top_polo": [], "top_evasao": []})
+
+    obter_ranking_fluxo("token123")
+
+    called_kwargs = mock_request.call_args.kwargs
+    assert called_kwargs["params"] == {"limit": 10}
+
+
