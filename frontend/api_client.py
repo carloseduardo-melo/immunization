@@ -188,3 +188,34 @@ def obter_ranking_fluxo(
     if data_fim:
         params["data_fim"] = data_fim
     return _request("GET", "/fluxo/ranking", token, params=params)
+
+
+# --- COMPLETUDE (RF15 & RF16) ---
+
+
+def listar_alertas_completude(
+    token: str,
+    status: Optional[str] = None,
+    municipio_id: Optional[str] = None,
+    ano: Optional[int] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> dict:
+    params: dict[str, Any] = {"page": page, "page_size": page_size}
+    if status:
+        params["status"] = status
+    if municipio_id:
+        params["municipio_id"] = municipio_id
+    if ano:
+        params["ano"] = ano
+    return _request("GET", "/completude/alertas", token, params=params)
+
+
+def atualizar_status_alerta(token: str, alerta_id: str, novo_status: str) -> dict:
+    return _request(
+        "PUT", f"/completude/alertas/{alerta_id}", token, json={"status": novo_status}
+    )
+
+
+def recalcular_completude(token: str, k: float = 2.0) -> dict:
+    return _request("POST", "/completude/recalcular", token, params={"k": k})
