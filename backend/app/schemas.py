@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
@@ -254,3 +254,40 @@ class RankingMunicipioItem(BaseModel):
 class FluxoRankingResponse(BaseModel):
     top_polo: list[RankingMunicipioItem]
     top_evasao: list[RankingMunicipioItem]
+
+
+# ==========================================
+# COMPLETUDE (RF15 & RF16)
+# ==========================================
+
+
+class AlertaCompletudeOut(BaseModel):
+    id: UUID
+    referencia_ano: int
+    referencia_mes: int
+    municipio_id: Optional[str] = None
+    municipio_nome: Optional[str] = None
+    total_observado: int
+    status: str
+    criado_em: datetime
+
+
+class AlertaStatusUpdate(BaseModel):
+    status: Literal["ABERTO", "INVESTIGANDO", "RESOLVIDO", "FALSO_POSITIVO"]
+
+
+class PaginatedAlertas(BaseModel):
+    items: list[AlertaCompletudeOut]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+    totais_por_status: dict[str, int]
+    municipios_afetados: int
+
+
+class ResultadoVarredura(BaseModel):
+    alertas_criados: int
+    alertas_atualizados: int
+    municipios_analisados: int
+    meses_analisados: int
