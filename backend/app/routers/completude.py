@@ -2,15 +2,16 @@
 
 from math import ceil
 from typing import Optional
+from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status as http_status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_admin_only, get_current_user, validate_municipio_scope
 from app.models import AlertaCompletude
-from app.schemas import AlertaCompletudeOut, PaginatedAlertas, ResultadoVarredura
+from app.schemas import AlertaCompletudeOut, AlertaStatusUpdate, PaginatedAlertas, ResultadoVarredura
 from app.services.completude import K_PADRAO, detectar_anomalias
 
 router = APIRouter(prefix="/completude", tags=["Completude"])
@@ -129,3 +130,34 @@ def listar_alertas(
         totais_por_status=totais_por_status,
         municipios_afetados=int(municipios_afetados or 0),
     )
+
+
+@router.put(
+    "/alertas/{alerta_id}",
+    response_model=AlertaCompletudeOut,
+    summary="Altera o status de um alerta de completude",
+    responses={
+        401: {"description": "Token ausente ou inválido."},
+        403: {"description": "Operação restrita ao perfil Administrador."},
+        404: {"description": "Alerta de completude não encontrado."},
+    },
+)
+def atualizar_status_alerta(
+    alerta_id: UUID,
+    payload: AlertaStatusUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_admin_only),
+):
+    """RF16 - Move o alerta para `INVESTIGANDO`, `RESOLVIDO` ou `FALSO_POSITIVO`.
+    Restrito ao perfil Administrador."""
+    alerta = db.query(AlertaCompletude).filter(AlertaCompletude.id == alerta_id).first()
+    if alerta is None:
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND,
+            detail="Alerta de completude não encontrado.",
+        )
+
+    alerta.status = payload.status
+    db.commit()
+    db.refresh(alerta)
+    return _alerta_out(alerta)

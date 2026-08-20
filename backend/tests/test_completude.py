@@ -1,5 +1,6 @@
 from datetime import date
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -408,3 +409,83 @@ def test_gestor_municipal_nao_consulta_outro_municipio(db_session):
 
 def test_listar_alertas_sem_token_retorna_401():
     assert client.get("/completude/alertas").status_code == 401
+
+
+@pytest.mark.parametrize("novo_status", ["INVESTIGANDO", "RESOLVIDO", "FALSO_POSITIVO"])
+def test_admin_altera_status_do_alerta(db_session, novo_status):
+    _municipio(db_session)
+    alerta = _alerta(db_session)
+    headers = _headers(db_session)
+
+    resposta = client.put(
+        f"/completude/alertas/{alerta.id}", json={"status": novo_status}, headers=headers
+    )
+
+    assert resposta.status_code == 200
+    assert resposta.json()["status"] == novo_status
+    db_session.refresh(alerta)
+    assert alerta.status == novo_status
+
+
+def test_alterar_status_negado_para_gestor_estadual(db_session):
+    _municipio(db_session)
+    alerta = _alerta(db_session)
+    headers = _headers(db_session, role="GESTOR_ESTADUAL", email="estadual@example.com")
+
+    resposta = client.put(
+        f"/completude/alertas/{alerta.id}", json={"status": "RESOLVIDO"}, headers=headers
+    )
+
+    assert resposta.status_code == 403
+    db_session.refresh(alerta)
+    assert alerta.status == "ABERTO"
+
+
+def test_alterar_status_negado_para_gestor_municipal(db_session):
+    _municipio(db_session)
+    alerta = _alerta(db_session)
+    headers = _headers(
+        db_session,
+        role="GESTOR_MUNICIPAL",
+        email="municipal@example.com",
+        municipio_id="2304400",
+    )
+
+    resposta = client.put(
+        f"/completude/alertas/{alerta.id}", json={"status": "RESOLVIDO"}, headers=headers
+    )
+
+    assert resposta.status_code == 403
+
+
+def test_alterar_status_invalido_retorna_422(db_session):
+    _municipio(db_session)
+    alerta = _alerta(db_session)
+    headers = _headers(db_session)
+
+    resposta = client.put(
+        f"/completude/alertas/{alerta.id}", json={"status": "ARQUIVADO"}, headers=headers
+    )
+
+    assert resposta.status_code == 422
+
+
+def test_alterar_status_de_alerta_inexistente_retorna_404(db_session):
+    headers = _headers(db_session)
+
+    resposta = client.put(
+        "/completude/alertas/00000000-0000-0000-0000-000000000000",
+        json={"status": "RESOLVIDO"},
+        headers=headers,
+    )
+
+    assert resposta.status_code == 404
+
+
+def test_alterar_status_sem_token_retorna_401():
+    resposta = client.put(
+        "/completude/alertas/00000000-0000-0000-0000-000000000000",
+        json={"status": "RESOLVIDO"},
+    )
+
+    assert resposta.status_code == 401
