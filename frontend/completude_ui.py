@@ -7,7 +7,7 @@ permite ao administrador tratar cada alerta. A varredura em si roda no backend
 
 import streamlit as st
 
-from api_client import ApiError
+from api_client import ApiError, atualizar_status_alerta, recalcular_completude
 from data_cache import alertas_completude, listar_municipios_resumido
 from theme import badge_html
 
@@ -92,6 +92,46 @@ def _render_paginacao(pagina):
         st.rerun()
 
 
+def _render_botao_varredura(token):
+    """RF15 - dispara a varredura no backend e limpa o cache da listagem."""
+    if not st.button("Executar varredura", type="primary", key="completude_varredura"):
+        return
+    try:
+        resultado = recalcular_completude(token)
+    except ApiError as exc:
+        st.error(f"Erro ao executar a varredura: {exc.message}")
+        return
+    st.cache_data.clear()
+    st.success(
+        f"Varredura concluída: {resultado['alertas_criados']} alerta(s) criado(s) e "
+        f"{resultado['alertas_atualizados']} atualizado(s) em "
+        f"{resultado['municipios_analisados']} município(s)."
+    )
+
+
+def _render_acao_status(coluna, token, alerta):
+    """RF16 - seletor de status + gravação, só para o perfil Administrador."""
+    rotulos = [rotulo for rotulo, _ in STATUS_ROTULOS.values()]
+    atual = STATUS_ROTULOS.get(alerta["status"], ("Aberto", "danger"))[0]
+    col_select, col_salvar = coluna.columns([2, 1])
+    escolha = col_select.selectbox(
+        "Status",
+        rotulos,
+        index=rotulos.index(atual),
+        key=f"completude_status_{alerta['id']}",
+        label_visibility="collapsed",
+    )
+    if not col_salvar.button("Salvar", key=f"completude_salvar_{alerta['id']}"):
+        return
+    try:
+        atualizar_status_alerta(token, alerta["id"], _ROTULO_PARA_STATUS[escolha])
+    except ApiError as exc:
+        st.error(f"Erro ao atualizar o alerta: {exc.message}")
+        return
+    st.cache_data.clear()
+    st.rerun()
+
+
 def render_completude_section():
     """RF15/RF16 - Painel de alertas de completude."""
     token = st.session_state.get("token")
@@ -100,6 +140,7 @@ def render_completude_section():
         return
 
     _init_state()
+    e_admin = st.session_state.get("role") == "ADMIN"
 
     st.markdown(
         '<div class="page-title">⚠️ Alertas de Completude</div>', unsafe_allow_html=True
@@ -109,6 +150,9 @@ def render_completude_section():
         "da faixa esperada.</div>",
         unsafe_allow_html=True,
     )
+
+    if e_admin:
+        _render_botao_varredura(token)
 
     with st.container(border=True):
         status, municipio_id, ano = _render_filtros(_municipios(token))
@@ -141,6 +185,8 @@ def render_completude_section():
     st.markdown("<hr>", unsafe_allow_html=True)
 
     for alerta in pagina["items"]:
-        _render_linha(alerta)
+        coluna_acao = _render_linha(alerta)
+        if e_admin:
+            _render_acao_status(coluna_acao, token, alerta)
 
     _render_paginacao(pagina)

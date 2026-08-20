@@ -195,3 +195,87 @@ def test_tela_sem_token_avisa_e_nao_consulta():
 
     st.session_state.clear()
     completude_ui.render_completude_section()
+
+
+@patch("completude_ui.recalcular_completude")
+@patch("completude_ui.listar_municipios_resumido")
+@patch("completude_ui.alertas_completude")
+def test_admin_dispara_a_varredura(mock_alertas, mock_municipios, mock_recalcular):
+    mock_alertas.return_value = _pagina_alertas()
+    mock_municipios.return_value = _MUNICIPIOS
+    mock_recalcular.return_value = {
+        "alertas_criados": 2,
+        "alertas_atualizados": 1,
+        "municipios_analisados": 5,
+        "meses_analisados": 60,
+    }
+
+    at = _abrir().run()
+    at.button(key="completude_varredura").click().run()
+
+    assert not at.exception
+    assert mock_recalcular.called
+    assert any("2" in (s.value or "") for s in at.success)
+
+
+@patch("completude_ui.recalcular_completude")
+@patch("completude_ui.listar_municipios_resumido")
+@patch("completude_ui.alertas_completude")
+def test_erro_na_varredura_exibe_mensagem(mock_alertas, mock_municipios, mock_recalcular):
+    mock_alertas.return_value = _pagina_alertas()
+    mock_municipios.return_value = _MUNICIPIOS
+    mock_recalcular.side_effect = ApiError("Operação não permitida para o seu perfil de acesso.")
+
+    at = _abrir().run()
+    at.button(key="completude_varredura").click().run()
+
+    assert not at.exception
+    assert any("não permitida" in (e.value or "") for e in at.error)
+
+
+@patch("completude_ui.atualizar_status_alerta")
+@patch("completude_ui.listar_municipios_resumido")
+@patch("completude_ui.alertas_completude")
+def test_admin_altera_o_status_de_um_alerta(mock_alertas, mock_municipios, mock_atualizar):
+    mock_alertas.return_value = _pagina_alertas()
+    mock_municipios.return_value = _MUNICIPIOS
+    mock_atualizar.return_value = {"status": "INVESTIGANDO"}
+    alerta_id = "11111111-1111-1111-1111-111111111111"
+
+    at = _abrir().run()
+    at.selectbox(key=f"completude_status_{alerta_id}").select("Investigando").run()
+    at.button(key=f"completude_salvar_{alerta_id}").click().run()
+
+    assert not at.exception
+    assert mock_atualizar.call_args.args[1] == alerta_id
+    assert mock_atualizar.call_args.args[2] == "INVESTIGANDO"
+
+
+@patch("completude_ui.atualizar_status_alerta")
+@patch("completude_ui.listar_municipios_resumido")
+@patch("completude_ui.alertas_completude")
+def test_erro_ao_salvar_status_exibe_mensagem(mock_alertas, mock_municipios, mock_atualizar):
+    mock_alertas.return_value = _pagina_alertas()
+    mock_municipios.return_value = _MUNICIPIOS
+    mock_atualizar.side_effect = ApiError("Alerta de completude não encontrado.")
+    alerta_id = "11111111-1111-1111-1111-111111111111"
+
+    at = _abrir().run()
+    at.button(key=f"completude_salvar_{alerta_id}").click().run()
+
+    assert not at.exception
+    assert any("não encontrado" in (e.value or "") for e in at.error)
+
+
+@patch("completude_ui.listar_municipios_resumido")
+@patch("completude_ui.alertas_completude")
+def test_gestor_estadual_ve_a_lista_sem_seletor_de_status(mock_alertas, mock_municipios):
+    mock_alertas.return_value = _pagina_alertas()
+    mock_municipios.return_value = _MUNICIPIOS
+    alerta_id = "11111111-1111-1111-1111-111111111111"
+
+    at = _abrir(role="GESTOR_ESTADUAL").run()
+
+    assert not at.exception
+    chaves = [s.key for s in at.selectbox]
+    assert f"completude_status_{alerta_id}" not in chaves
