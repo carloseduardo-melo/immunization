@@ -24,15 +24,15 @@ A tabela `alertas_completude` e o model `AlertaCompletude`
 (`backend/app/models.py:130`) já estão no repositório, criados pela migration
 `b6b6414f1b16_schema.py`:
 
-| Coluna | Tipo | Observação |
-|---|---|---|
-| `id` | GUID | PK |
-| `referencia_ano` | SmallInteger | not null |
-| `referencia_mes` | SmallInteger | not null, CHECK 1..12 |
-| `municipio_id` | String(7) | FK `municipios.id_ibge`, nullable |
-| `total_observado` | Integer | not null |
-| `status` | String(20) | default ABERTO, CHECK ABERTO/INVESTIGANDO/RESOLVIDO/FALSO_POSITIVO |
-| `criado_em` | TIMESTAMP | default now |
+| Coluna            | Tipo         | Observação                                                         |
+| ----------------- | ------------ | ------------------------------------------------------------------ |
+| `id`              | GUID         | PK                                                                 |
+| `referencia_ano`  | SmallInteger | not null                                                           |
+| `referencia_mes`  | SmallInteger | not null, CHECK 1..12                                              |
+| `municipio_id`    | String(7)    | FK `municipios.id_ibge`, nullable                                  |
+| `total_observado` | Integer      | not null                                                           |
+| `status`          | String(20)   | default ABERTO, CHECK ABERTO/INVESTIGANDO/RESOLVIDO/FALSO_POSITIVO |
+| `criado_em`       | TIMESTAMP    | default now                                                        |
 
 **Nenhuma migration nova é necessária.** O schema atende os dois RFs como está.
 
@@ -77,11 +77,11 @@ cada varredura apagaria o trabalho de triagem do RF16.
 
 ### Visibilidade e permissões
 
-| Operação | ADMIN | GESTOR_ESTADUAL | GESTOR_MUNICIPAL |
-|---|---|---|---|
-| `GET /completude/alertas` | todos | todos | só o município alocado |
-| `PUT /completude/alertas/{id}` | sim | 403 | 403 |
-| `POST /completude/recalcular` | sim | 403 | 403 |
+| Operação                       | ADMIN | GESTOR_ESTADUAL | GESTOR_MUNICIPAL       |
+| ------------------------------ | ----- | --------------- | ---------------------- |
+| `GET /completude/alertas`      | todos | todos           | só o município alocado |
+| `PUT /completude/alertas/{id}` | sim   | 403             | 403                    |
+| `POST /completude/recalcular`  | sim   | 403             | 403                    |
 
 O escopo por município reutiliza `validate_municipio_scope`
 (`backend/app/dependencies.py`), e a restrição a administrador reutiliza
