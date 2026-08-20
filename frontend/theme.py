@@ -24,6 +24,7 @@ BADGE_TONES = {
     "warning": ("#fef3c7", "#b45309"),
     "neutral": ("#f4f4f5", "#52525b"),
     "alta": ("#f3e8ff", "#7e22ce"),
+    "danger": ("#fee2e2", "#b91c1c"),
 }
 
 

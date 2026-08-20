@@ -13,13 +13,13 @@ class ApiError(Exception):
         self.status_code = status_code
 
 
-def _request(method: str, path: str, token: str, **kwargs) -> Any:
+def _request(method: str, path: str, token: str, timeout: int = 10, **kwargs) -> Any:
     try:
         response = requests.request(
             method,
             f"{API_URL}{path}",
             headers={"Authorization": f"Bearer {token}"},
-            timeout=10,
+            timeout=timeout,
             **kwargs,
         )
     except requests.exceptions.ConnectionError:
@@ -188,3 +188,36 @@ def obter_ranking_fluxo(
     if data_fim:
         params["data_fim"] = data_fim
     return _request("GET", "/fluxo/ranking", token, params=params)
+
+
+# --- COMPLETUDE (RF15 & RF16) ---
+
+
+def listar_alertas_completude(
+    token: str,
+    status: Optional[str] = None,
+    municipio_id: Optional[str] = None,
+    ano: Optional[int] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> dict:
+    params: dict[str, Any] = {"page": page, "page_size": page_size}
+    if status:
+        params["status"] = status
+    if municipio_id:
+        params["municipio_id"] = municipio_id
+    if ano:
+        params["ano"] = ano
+    return _request("GET", "/completude/alertas", token, params=params)
+
+
+def atualizar_status_alerta(token: str, alerta_id: str, novo_status: str) -> dict:
+    return _request(
+        "PUT", f"/completude/alertas/{alerta_id}", token, json={"status": novo_status}
+    )
+
+
+def recalcular_completude(token: str, k: float = 2.0) -> dict:
+    # A varredura agrega milhões de registros; o timeout padrão de 10s estoura
+    # antes dela terminar na base real, então usamos um teto maior aqui.
+    return _request("POST", "/completude/recalcular", token, params={"k": k}, timeout=120)

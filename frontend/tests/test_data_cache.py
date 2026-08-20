@@ -16,6 +16,7 @@ def _limpar_cache():
         data_cache.fluxo_intermunicipal,
         data_cache.ranking_fluxo,
         data_cache.resumo_dashboard,
+        data_cache.alertas_completude,
     ):
         funcao.clear()
     yield
@@ -120,6 +121,34 @@ def test_resumo_dashboard_repassa_parametros(mock_resumo):
         "vacina_id": 1,
         "ano": 2024,
     }
+
+
+@patch("data_cache.listar_alertas_completude")
+def test_alertas_completude_repassa_todos_os_parametros(mock_listar):
+    mock_listar.return_value = {"items": []}
+
+    data_cache.alertas_completude(
+        "token", status="ABERTO", municipio_id="2304400", ano=2024, page=2, page_size=25
+    )
+
+    assert mock_listar.call_args.kwargs == {
+        "status": "ABERTO",
+        "municipio_id": "2304400",
+        "ano": 2024,
+        "page": 2,
+        "page_size": 25,
+    }
+
+
+@patch("data_cache.listar_alertas_completude")
+def test_alertas_completude_nao_repete_a_chamada_http(mock_listar):
+    mock_listar.return_value = {"items": []}
+
+    data_cache.alertas_completude("token", status="ABERTO", page=1, page_size=10)
+    data_cache.alertas_completude("token", status="ABERTO", page=1, page_size=10)
+    data_cache.alertas_completude("token", status="ABERTO", page=1, page_size=10)
+
+    assert mock_listar.call_count == 1, "o cache deve evitar refazer a mesma consulta"
 
 
 def test_ttls_sao_coerentes_com_o_tipo_de_dado():

@@ -19,6 +19,7 @@ com edições recentes sem repetir a agregação a cada rerun.
 import streamlit as st
 
 from api_client import (
+    listar_alertas_completude,
     listar_todos_municipios,
     listar_vacinas,
     obter_fluxo_intermunicipal,
@@ -87,4 +88,26 @@ def ranking_fluxo(
 def resumo_dashboard(token: str, municipio_id=None, vacina_id=None, ano=None) -> dict:
     return obter_resumo_dashboard(
         token, municipio_id=municipio_id, vacina_id=vacina_id, ano=ano
+    )
+
+
+@st.cache_data(ttl=TTL_AGREGADO, show_spinner=False)
+def alertas_completude(
+    token: str,
+    status=None,
+    municipio_id=None,
+    ano=None,
+    page: int = 1,
+    page_size: int = 10,
+) -> dict:
+    """Listagem de alertas com o mesmo TTL dos demais agregados: a varredura e a
+    troca de status limpam o cache explicitamente, então 5 minutos aqui só evita
+    repetir a consulta a cada rerun do Streamlit."""
+    return listar_alertas_completude(
+        token,
+        status=status,
+        municipio_id=municipio_id,
+        ano=ano,
+        page=page,
+        page_size=page_size,
     )

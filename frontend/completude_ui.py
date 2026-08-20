@@ -1,0 +1,207 @@
+"""RF15/RF16 - Alertas de completude de dados.
+
+Lista os meses/municípios que a varredura apontou como fora do padrão esperado e
+permite ao administrador tratar cada alerta. A varredura em si roda no backend
+(POST /completude/recalcular); esta tela apenas a dispara e mostra o resultado.
+"""
+
+import streamlit as st
+
+from api_client import ApiError, atualizar_status_alerta, recalcular_completude
+from data_cache import alertas_completude, listar_municipios_resumido
+from theme import badge_html
+
+# Rótulo exibido e tom do badge de cada status do banco.
+STATUS_ROTULOS = {
+    "ABERTO": ("Aberto", "danger"),
+    "INVESTIGANDO": ("Investigando", "warning"),
+    "RESOLVIDO": ("Resolvido", "success"),
+    "FALSO_POSITIVO": ("Falso positivo", "neutral"),
+}
+OPCOES_STATUS = ["Todos"] + [rotulo for rotulo, _ in STATUS_ROTULOS.values()]
+_ROTULO_PARA_STATUS = {rotulo: chave for chave, (rotulo, _) in STATUS_ROTULOS.items()}
+PAGE_SIZE = 10
+
+
+def _init_state():
+    if "completude_page" not in st.session_state:
+        st.session_state["completude_page"] = 1
+    if "completude_filtros_anteriores" not in st.session_state:
+        # Mesma trinca (status, municipio_id, ano) que _render_filtros produz
+        # com os valores padrão dos widgets (Todos / Todos / 0), para o
+        # primeiro render não disparar um reset de página espúrio.
+        st.session_state["completude_filtros_anteriores"] = (None, None, None)
+
+
+def _municipios(token):
+    try:
+        return listar_municipios_resumido(token)
+    except ApiError:
+        # A tela continua útil sem o seletor de município.
+        return []
+
+
+def _render_filtros(municipios):
+    col_status, col_municipio, col_ano = st.columns([1.2, 2, 1])
+
+    with col_status:
+        rotulo = st.selectbox("Status", OPCOES_STATUS, key="completude_status")
+        status = _ROTULO_PARA_STATUS.get(rotulo)
+
+    with col_municipio:
+        opcoes = ["Todos"] + [f"{nome} ({mid})" for mid, nome in municipios]
+        escolha = st.selectbox("Município", opcoes, key="completude_municipio")
+        municipio_id = None
+        if escolha != "Todos":
+            municipio_id = escolha.split("(")[-1].replace(")", "").strip()
+
+    with col_ano:
+        ano = st.number_input(
+            "Ano", min_value=0, max_value=2100, value=0, step=1, key="completude_ano"
+        )
+        ano = int(ano) or None
+
+    # Trocar qualquer filtro invalida a página atual — senão o usuário pode
+    # ficar preso numa página que não existe mais para o novo recorte.
+    filtros_atuais = (status, municipio_id, ano)
+    if st.session_state["completude_filtros_anteriores"] != filtros_atuais:
+        st.session_state["completude_filtros_anteriores"] = filtros_atuais
+        st.session_state["completude_page"] = 1
+
+    return status, municipio_id, ano
+
+
+def _render_kpis(pagina):
+    totais = pagina["totais_por_status"]
+    col1, col2, col3, col4 = st.columns(4)
+    # totais_por_status já ignora o filtro de status (é o recorte inteiro); o
+    # primeiro KPI usa a mesma base, senão os quatro números não fecham entre
+    # si quando um filtro de status está aplicado.
+    col1.metric("Total de alertas", sum(totais.values()))
+    col2.metric("Abertos", totais["ABERTO"])
+    col3.metric("Em investigação", totais["INVESTIGANDO"])
+    col4.metric("Municípios afetados", pagina["municipios_afetados"])
+
+
+def _render_linha(alerta):
+    colunas = st.columns([1.2, 2.4, 1.4, 1.6, 2.4])
+    colunas[0].markdown(f"{alerta['referencia_mes']:02d}/{alerta['referencia_ano']}")
+    colunas[1].markdown(alerta.get("municipio_nome") or "—")
+    colunas[2].markdown(f"{alerta['total_observado']}")
+    rotulo, tom = STATUS_ROTULOS.get(alerta["status"], (alerta["status"], "neutral"))
+    colunas[3].markdown(badge_html(rotulo, tom), unsafe_allow_html=True)
+    return colunas[4]
+
+
+def _render_paginacao(pagina):
+    total_paginas = max(pagina["total_pages"], 1)
+    atual = st.session_state["completude_page"]
+    col_info, _, col_anterior, col_proxima = st.columns([6, 3, 0.6, 0.6])
+    col_info.caption(f"Página {atual} de {total_paginas} — {pagina['total']} alertas")
+
+    if col_anterior.button("◀", key="completude_anterior", disabled=atual <= 1):
+        st.session_state["completude_page"] = atual - 1
+        st.rerun()
+    if col_proxima.button("▶", key="completude_proxima", disabled=atual >= total_paginas):
+        st.session_state["completude_page"] = atual + 1
+        st.rerun()
+
+
+def _render_botao_varredura(token):
+    """RF15 - dispara a varredura no backend e limpa o cache da listagem."""
+    if not st.button("Executar varredura", type="primary", key="completude_varredura"):
+        return
+    try:
+        resultado = recalcular_completude(token)
+    except ApiError as exc:
+        st.error(f"Erro ao executar a varredura: {exc.message}")
+        return
+    alertas_completude.clear()
+    st.success(
+        f"Varredura concluída: {resultado['alertas_criados']} alerta(s) criado(s) e "
+        f"{resultado['alertas_atualizados']} atualizado(s) em "
+        f"{resultado['municipios_analisados']} município(s)."
+    )
+
+
+def _render_acao_status(coluna, token, alerta):
+    """RF16 - seletor de status + gravação, só para o perfil Administrador."""
+    rotulos = [rotulo for rotulo, _ in STATUS_ROTULOS.values()]
+    atual = STATUS_ROTULOS.get(alerta["status"], ("Aberto", "danger"))[0]
+    col_select, col_salvar = coluna.columns([2, 1])
+    escolha = col_select.selectbox(
+        "Status",
+        rotulos,
+        index=rotulos.index(atual),
+        key=f"completude_status_{alerta['id']}",
+        label_visibility="collapsed",
+    )
+    if not col_salvar.button("Salvar", key=f"completude_salvar_{alerta['id']}"):
+        return
+    try:
+        atualizar_status_alerta(token, alerta["id"], _ROTULO_PARA_STATUS[escolha])
+    except ApiError as exc:
+        st.error(f"Erro ao atualizar o alerta: {exc.message}")
+        return
+    alertas_completude.clear()
+    st.rerun()
+
+
+def render_completude_section():
+    """RF15/RF16 - Painel de alertas de completude."""
+    token = st.session_state.get("token")
+    if not token:
+        st.warning("É necessário estar autenticado para visualizar os alertas.")
+        return
+
+    _init_state()
+    e_admin = st.session_state.get("role") == "ADMIN"
+
+    st.markdown(
+        '<div class="page-title">⚠️ Alertas de Completude</div>', unsafe_allow_html=True
+    )
+    st.markdown(
+        '<div class="page-subtitle">Meses e municípios com volume de registros fora '
+        "da faixa esperada.</div>",
+        unsafe_allow_html=True,
+    )
+
+    if e_admin:
+        _render_botao_varredura(token)
+
+    with st.container(border=True):
+        status, municipio_id, ano = _render_filtros(_municipios(token))
+
+    try:
+        pagina = alertas_completude(
+            token,
+            status=status,
+            municipio_id=municipio_id,
+            ano=ano,
+            page=st.session_state["completude_page"],
+            page_size=PAGE_SIZE,
+        )
+    except ApiError as exc:
+        st.error(f"Erro ao carregar os alertas de completude: {exc.message}")
+        return
+
+    _render_kpis(pagina)
+
+    if not pagina["items"]:
+        st.info("Nenhum alerta de completude para os filtros selecionados.")
+        return
+
+    st.markdown("<hr>", unsafe_allow_html=True)
+    cabecalho = st.columns([1.2, 2.4, 1.4, 1.6, 2.4])
+    for coluna, titulo in zip(
+        cabecalho, ["Referência", "Município", "Doses", "Status", ""]
+    ):
+        coluna.markdown(f"**{titulo}**")
+    st.markdown("<hr>", unsafe_allow_html=True)
+
+    for alerta in pagina["items"]:
+        coluna_acao = _render_linha(alerta)
+        if e_admin:
+            _render_acao_status(coluna_acao, token, alerta)
+
+    _render_paginacao(pagina)

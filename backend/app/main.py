@@ -11,6 +11,7 @@ from app.routers.registros import router as registros_router
 from app.routers.vacinas import router as vacinas_router
 from app.routers.dashboard import router as dashboard_router
 from app.routers.fluxo import router as fluxo_router
+from app.routers.completude import router as completude_router
 from app.security import ALGORITHM, SECRET_KEY
 
 API_DESCRIPTION = """
@@ -53,6 +54,13 @@ OPENAPI_TAGS = [
     {
         "name": "Fluxo Intermunicipal",
         "description": "Mobilidade vacinal origem x destino e ranking de municípios-polo/evasão, a partir da view mv_fluxo_intermunicipal.",
+    },
+    {
+        "name": "Completude",
+        "description": (
+            "Alertas de completude de dados: varredura automática de meses/municípios "
+            "fora do padrão e gestão do status dos alertas (perfil ADMIN para escrita)."
+        ),
     },
 ]
 
@@ -109,6 +117,7 @@ app.include_router(vacinas_router)
 app.include_router(registros_router)
 app.include_router(dashboard_router)
 app.include_router(fluxo_router)
+app.include_router(completude_router)
 
 @app.get("/health")
 def health_check():

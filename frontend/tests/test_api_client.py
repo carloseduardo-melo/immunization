@@ -2,6 +2,7 @@ from unittest.mock import MagicMock, patch
 
 from api_client import (
     ApiError,
+    _request,
     atualizar_municipio,
     criar_municipio,
     desativar_municipio,
@@ -16,6 +17,28 @@ def _mock_response(status_code=200, json_data=None):
     mock.content = b"{}"
     mock.json.return_value = json_data or {}
     return mock
+
+
+@patch("api_client.requests.request")
+def test_request_aceita_timeout_customizado_sem_conflitar_com_kwargs(mock_request):
+    # _request tinha timeout=10 fixo e **kwargs adiante: um chamador que
+    # tentasse _request(..., timeout=120) recebia
+    # "TypeError: got multiple values for keyword argument 'timeout'".
+    mock_request.return_value = _mock_response(200, {"ok": True})
+
+    resultado = _request("GET", "/x", "token123", timeout=120)
+
+    assert resultado == {"ok": True}
+    assert mock_request.call_args.kwargs["timeout"] == 120
+
+
+@patch("api_client.requests.request")
+def test_request_usa_timeout_padrao_de_10s(mock_request):
+    mock_request.return_value = _mock_response(200, {"ok": True})
+
+    _request("GET", "/x", "token123")
+
+    assert mock_request.call_args.kwargs["timeout"] == 10
 
 
 @patch("api_client.requests.request")

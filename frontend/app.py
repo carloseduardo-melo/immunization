@@ -5,6 +5,7 @@ import requests
 from streamlit_cookies_controller import CookieController
 
 from api_client import ApiError, obter_me
+from completude_ui import render_completude_section
 from fluxo_ui import render_fluxo_intermunicipal_section
 from municipios_ui import render_municipios_section
 from registros_ui import render_registros_section
@@ -525,6 +526,7 @@ else:
     PAGINAS = {
         "dashboard": "📊 Dashboard Geral",
         "fluxo": "🔀 Fluxo Intermunicipal",
+        "completude": "⚠️ Alertas de Completude",
         "registros": "💉 Registros de Vacinação",
         "municipios": "🏙️ Gestão de Municípios & Vacinas",
     }
@@ -581,6 +583,8 @@ else:
         render_dashboard_section()
     elif st.session_state["pagina_ativa"] == "fluxo":
         render_fluxo_intermunicipal_section()
+    elif st.session_state["pagina_ativa"] == "completude":
+        render_completude_section()
     elif st.session_state["pagina_ativa"] == "municipios":
         render_municipios_section()
     else:
