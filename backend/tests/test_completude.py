@@ -1,7 +1,33 @@
 from datetime import date
 
-from app.models import AlertaCompletude, Municipio, RegistroVacinacao
+from fastapi.testclient import TestClient
+
+from app.main import app
+from app.models import AlertaCompletude, Municipio, RegistroVacinacao, UsuarioAdmin
+from app.security import get_password_hash
 from app.services.completude import detectar_anomalias
+
+client = TestClient(app)
+
+
+def _criar_usuario(db_session, email, role, municipio_id=None):
+    db_session.add(
+        UsuarioAdmin(
+            email=email,
+            senha_hash=get_password_hash("senha123"),
+            role=role,
+            municipio_alocado_id=municipio_id,
+        )
+    )
+    db_session.commit()
+
+
+def _headers(db_session, role="ADMIN", email="admin@example.com", municipio_id=None):
+    _criar_usuario(db_session, email, role, municipio_id)
+    token = client.post(
+        "/auth/login", json={"email": email, "password": "senha123"}
+    ).json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
 
 
 def _municipio(db_session, id_ibge="2304400", nome="Fortaleza"):
@@ -143,3 +169,75 @@ def test_reexecutar_nao_duplica_e_preserva_status_tratado(db_session):
     assert alertas[0].status == "RESOLVIDO"
     assert resultado.alertas_criados == 0
     assert resultado.alertas_atualizados == 1
+
+
+def test_recalcular_como_admin_retorna_contadores(db_session):
+    _municipio(db_session)
+    _serie(
+        db_session,
+        "2304400",
+        {
+            (2024, 1): 100,
+            (2024, 2): 100,
+            (2024, 3): 100,
+            (2024, 4): 100,
+            (2024, 5): 100,
+            (2024, 6): 10,
+        },
+    )
+    headers = _headers(db_session)
+
+    resposta = client.post("/completude/recalcular", headers=headers)
+
+    assert resposta.status_code == 200
+    assert resposta.json()["alertas_criados"] == 1
+
+
+def test_recalcular_aceita_k_customizado(db_session):
+    _municipio(db_session)
+    _serie(
+        db_session,
+        "2304400",
+        {
+            (2024, 1): 100,
+            (2024, 2): 100,
+            (2024, 3): 100,
+            (2024, 4): 100,
+            (2024, 5): 100,
+            (2024, 6): 10,
+        },
+    )
+    headers = _headers(db_session)
+
+    resposta = client.post("/completude/recalcular", params={"k": 3.0}, headers=headers)
+
+    assert resposta.status_code == 200
+    assert resposta.json()["alertas_criados"] == 0
+
+
+def test_recalcular_negado_para_gestor_estadual(db_session):
+    headers = _headers(db_session, role="GESTOR_ESTADUAL", email="estadual@example.com")
+
+    resposta = client.post("/completude/recalcular", headers=headers)
+
+    assert resposta.status_code == 403
+
+
+def test_recalcular_negado_para_gestor_municipal(db_session):
+    _municipio(db_session)
+    headers = _headers(
+        db_session,
+        role="GESTOR_MUNICIPAL",
+        email="municipal@example.com",
+        municipio_id="2304400",
+    )
+
+    resposta = client.post("/completude/recalcular", headers=headers)
+
+    assert resposta.status_code == 403
+
+
+def test_recalcular_sem_token_retorna_401():
+    resposta = client.post("/completude/recalcular")
+
+    assert resposta.status_code == 401
