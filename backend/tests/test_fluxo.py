@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.models import Municipio, RegistroVacinacao, UsuarioAdmin, Vacina
 from app.security import get_password_hash
+from app.sql_views import marcar_fluxo_desatualizado
 
 client = TestClient(app)
 
@@ -95,6 +96,14 @@ def setup_fluxo_dados(db_session):
         ),
     ]
     db_session.add_all(registros)
+    db_session.commit()
+
+    # No PostgreSQL a view é MATERIALIZADA, ou seja, um retrato dos dados no
+    # momento da última agregação — inserir registros não a atualiza sozinha.
+    # Em produção quem marca a view são as escritas em /registros; aqui os
+    # dados entram direto pelo ORM, então a marca é posta à mão para que a
+    # primeira leitura de /fluxo reagregue (mesmo caminho da aplicação real).
+    marcar_fluxo_desatualizado(db_session)
     db_session.commit()
 
     return {"fortaleza": fortaleza, "caucaia": caucaia, "maracanau": maracanau, "covid": covid, "flu": flu}
@@ -222,7 +231,7 @@ def test_criar_registro_marca_view_como_desatualizada(db_session):
 
     from app.sql_views import CONTROLE_TABLE, garantir_fluxo_atualizado
 
-    setup_fluxo_dados(db_session)
+    dados = setup_fluxo_dados(db_session)
     headers = auth_headers(db_session)
 
     garantir_fluxo_atualizado(db_session)
@@ -234,7 +243,9 @@ def test_criar_registro_marca_view_como_desatualizada(db_session):
             "data_vacinacao": "2024-07-01",
             "municipio_vacina_id": "2304400",
             "municipio_residencia_id": "2303709",
-            "vacina_id": 1,
+            # O id vem do fixture: no PostgreSQL a sequência de `vacinas` não
+            # volta atrás no rollback entre testes, então não dá para supor 1.
+            "vacina_id": dados["covid"].id,
             "idade": 40,
             "quantidade": 1,
         },

@@ -174,11 +174,16 @@ def test_indices_existem_apenas_no_postgres():
 
 
 def test_dialeto_e_resolvido_a_partir_da_sessao(db_session):
-    """`_dialect_name` precisa funcionar tanto com Session quanto com Connection."""
+    """`_dialect_name` precisa funcionar tanto com Session quanto com Connection.
+
+    O nome do dialeto não é fixado no teste: a suíte roda em SQLite localmente e
+    em PostgreSQL no CI.
+    """
     from app.sql_views import _dialect_name
 
-    assert _dialect_name(db_session) == "sqlite"
-    assert _dialect_name(db_session.get_bind()) == "sqlite"
+    dialeto = _dialect_name(db_session)
+    assert dialeto in {"sqlite", "postgresql"}
+    assert _dialect_name(db_session.get_bind()) == dialeto
 
 
 def test_ensure_fluxo_view_e_idempotente():
