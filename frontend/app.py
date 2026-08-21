@@ -4,6 +4,7 @@ import requests
 
 from streamlit_cookies_controller import CookieController
 
+from alta_complexidade_ui import render_alta_complexidade_section
 from api_client import ApiError, obter_me
 from completude_ui import render_completude_section
 from fluxo_ui import render_fluxo_intermunicipal_section
@@ -528,6 +529,7 @@ else:
         "dashboard": "📊 Dashboard Geral",
         "fluxo": "🔀 Fluxo Intermunicipal",
         "sazonalidade": "📅 Sazonalidade",
+        "alta_complexidade": "🧬 Alta Complexidade",
         "completude": "⚠️ Alertas de Completude",
         "registros": "💉 Registros de Vacinação",
         "municipios": "🏙️ Gestão de Municípios & Vacinas",
@@ -587,6 +589,8 @@ else:
         render_fluxo_intermunicipal_section()
     elif st.session_state["pagina_ativa"] == "sazonalidade":
         render_sazonalidade_section()
+    elif st.session_state["pagina_ativa"] == "alta_complexidade":
+        render_alta_complexidade_section()
     elif st.session_state["pagina_ativa"] == "completude":
         render_completude_section()
     elif st.session_state["pagina_ativa"] == "municipios":
