@@ -318,3 +318,31 @@ class SazonalidadeKPIs(BaseModel):
 class SazonalidadeResponse(BaseModel):
     kpis: SazonalidadeKPIs
     meses: list[SazonalidadeMes]
+
+
+# ==========================================
+# ALTA COMPLEXIDADE (RF18)
+# ==========================================
+
+
+class MunicipioAplicacaoItem(BaseModel):
+    municipio_id: str
+    municipio_nome: str
+    total_doses: int
+    percentual: float
+
+
+class VacinaAltaComplexidadeItem(BaseModel):
+    vacina_id: int
+    vacina_nome: str
+    total_doses: int
+    total_deslocamentos: int
+    taxa_deslocamento: float
+    centro_referencia_id: Optional[str] = None
+    centro_referencia_nome: Optional[str] = None
+    municipios: list[MunicipioAplicacaoItem]
+
+
+class AltaComplexidadeResponse(BaseModel):
+    items: list[VacinaAltaComplexidadeItem]
+    total_vacinas: int
