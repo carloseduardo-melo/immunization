@@ -18,7 +18,7 @@
 - Commits **sem** trailer `Co-Authored-By` (preferência do repositório).
 - Nenhuma migração Alembic: os dois painéis usam apenas tabelas e colunas existentes.
 - Mensagens de UI e docstrings em português, como no restante do projeto.
-- Base de cálculo do RF18 (`ativo = true` e `status_dado != 'DADO_INCONSISTENTE'`) é a mesma do `taxa_mobilidade` de `/dashboard/resumo`. Não divergir.
+- Base de cálculo do RF18: `ativo = true` e `status_dado != 'DADO_INCONSISTENTE'`, no numerador **e** no denominador. Difere do `taxa_mobilidade` de `/dashboard/resumo`, que usa base mista (denominador com inconsistentes, numerador sem) — a taxa do RF18 pode divergir da do Dashboard para a mesma vacina, por decisão de projeto. `/dashboard/resumo` não deve ser alterado.
 
 ---
 
@@ -722,10 +722,13 @@ Para cada vacina marcada com `alta_complexidade`, mostra a taxa de deslocamento
 e os municípios de maior volume de aplicação - o primeiro deles é o centro de
 referência regional.
 
-A base de cálculo (registros ativos, exceto DADO_INCONSISTENTE) é a mesma do
-`taxa_mobilidade` de /dashboard/resumo, para os dois painéis não se
-contradizerem. A `mv_fluxo_intermunicipal` não serve aqui: ela só contém
-registros com deslocamento real, e a taxa precisa do denominador completo.
+A base de cálculo exclui DADO_INCONSISTENTE do numerador e do denominador - a
+estatística mais defensável para este painel. Difere do `taxa_mobilidade` de
+/dashboard/resumo, que usa base mista (denominador com inconsistentes,
+numerador sem); por isso a taxa daqui pode divergir da taxa de mobilidade do
+Dashboard para a mesma vacina - é decisão de projeto, não bug. A
+`mv_fluxo_intermunicipal` não serve aqui: ela só contém registros com
+deslocamento real, e a taxa precisa do denominador completo.
 """
 
 from collections import defaultdict
