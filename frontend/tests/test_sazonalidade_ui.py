@@ -221,3 +221,42 @@ def test_tela_sem_token_avisa_e_nao_consulta(mock_warning, mock_saz):
         "É necessário estar autenticado para visualizar a sazonalidade."
     )
     mock_saz.assert_not_called()
+
+
+@patch("sazonalidade_ui.listar_vacinas_resumido")
+@patch("sazonalidade_ui.listar_municipios_resumido")
+@patch("sazonalidade_ui.sazonalidade")
+def test_amplitude_indefinida_mostra_travessao(mock_saz, mock_municipios, mock_vacinas):
+    """amplitude=0.0 do backend significa vale sem nenhuma dose - indefinida,
+    não "sem sazonalidade". "0.0x" se leria como o oposto do que o gráfico
+    mostra, então a tela precisa de um travessão aqui."""
+    dados = _payload()
+    dados["kpis"]["amplitude"] = 0.0
+    mock_saz.return_value = dados
+    mock_municipios.return_value = _MUNICIPIOS
+    mock_vacinas.return_value = _VACINAS
+
+    at = _abrir().run()
+
+    assert not at.exception
+    valores = {m.label: str(m.value) for m in at.metric}
+    assert valores["Amplitude"] == "—"
+
+
+@patch("sazonalidade_ui.listar_vacinas_resumido")
+@patch("sazonalidade_ui.listar_municipios_resumido")
+@patch("sazonalidade_ui.sazonalidade")
+def test_amplitude_definida_mostra_o_multiplicador(
+    mock_saz, mock_municipios, mock_vacinas
+):
+    dados = _payload()
+    dados["kpis"]["amplitude"] = 3.5
+    mock_saz.return_value = dados
+    mock_municipios.return_value = _MUNICIPIOS
+    mock_vacinas.return_value = _VACINAS
+
+    at = _abrir().run()
+
+    assert not at.exception
+    valores = {m.label: str(m.value) for m in at.metric}
+    assert valores["Amplitude"] == "3.5x"

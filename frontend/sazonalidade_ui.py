@@ -72,7 +72,15 @@ def _render_kpis(kpis):
             st.metric("Mês de vale", kpis["mes_vale_nome"])
     with col3:
         with st.container(border=True):
-            st.metric("Amplitude", f"{kpis['amplitude']}x")
+            amplitude_texto = (
+                "—" if kpis["amplitude"] == 0 else f"{kpis['amplitude']:.1f}x"
+            )
+            st.metric(
+                "Amplitude",
+                amplitude_texto,
+                help="Pico dividido pelo vale. Travessão quando o mês de vale "
+                "não teve nenhuma dose - a amplitude não é definida.",
+            )
     with col4:
         with st.container(border=True):
             st.metric("Total do período", _formatar_numero(kpis["total_periodo"]))
