@@ -12,6 +12,17 @@ numerador sem); por isso a taxa de deslocamento aqui pode divergir da taxa de
 mobilidade do Dashboard para a mesma vacina - é decisão de projeto, não bug.
 A `mv_fluxo_intermunicipal` não serve aqui: ela só contém registros com
 deslocamento real, e a taxa precisa do denominador completo.
+
+`total_doses` continua contando toda a base válida, incluindo os registros sem
+município de residência (`teve_deslocamento IS NULL`, ETL marca como
+DESLOCAMENTO_INDETERMINADO) - volume aplicado é volume aplicado, e o ranking de
+municípios depende desse total. Mas esses registros nunca podem entrar no
+numerador (`teve_deslocamento == True` descarta NULL), então deixá-los no
+denominador de `taxa_deslocamento` dilui a taxa de forma desigual entre
+vacinas e municípios, conforme a fatia de origem desconhecida de cada um. Por
+isso `taxa_deslocamento` usa como denominador `total_doses - total_indeterminado`
+(as doses de origem conhecida): "das doses cuja origem conhecemos, quantas
+foram deslocadas". `total_indeterminado` também é exposto por vacina.
 """
 
 from collections import defaultdict
@@ -95,6 +106,19 @@ def obter_alta_complexidade(
         .group_by(RegistroVacinacao.vacina_id)
         .all()
     )
+    # Origem desconhecida: teve_deslocamento IS NULL e o criterio exato (nao
+    # status_dado) porque e o que garante, por construcao, que este numero seja
+    # subconjunto de `totais` - o denominador de taxa_deslocamento depende disso.
+    indeterminados = dict(
+        _base_valida(db, ids)
+        .filter(RegistroVacinacao.teve_deslocamento.is_(None))
+        .with_entities(
+            RegistroVacinacao.vacina_id,
+            func.sum(RegistroVacinacao.quantidade),
+        )
+        .group_by(RegistroVacinacao.vacina_id)
+        .all()
+    )
 
     # Uma linha por (vacina, município), já ordenada por volume: o corte do
     # top N acontece em Python sobre este agregado, que é pequeno - são poucas
@@ -113,7 +137,12 @@ def obter_alta_complexidade(
             RegistroVacinacao.municipio_vacina_id,
             Municipio.nome,
         )
-        .order_by(func.sum(RegistroVacinacao.quantidade).desc())
+        # Empate resolvido pelo menor id de municipio, para a resposta ser
+        # deterministica - o RF17 faz o analogo com o numero do mes.
+        .order_by(
+            func.sum(RegistroVacinacao.quantidade).desc(),
+            RegistroVacinacao.municipio_vacina_id.asc(),
+        )
         .all()
     )
     por_vacina = defaultdict(list)
@@ -124,6 +153,8 @@ def obter_alta_complexidade(
     for vacina in vacinas:
         total = int(totais.get(vacina.id) or 0)
         deslocados = int(deslocamentos.get(vacina.id) or 0)
+        indeterminado = int(indeterminados.get(vacina.id) or 0)
+        base_conhecida = total - indeterminado
         municipios = [
             MunicipioAplicacaoItem(
                 municipio_id=linha.municipio_id,
@@ -139,7 +170,12 @@ def obter_alta_complexidade(
                 vacina_nome=vacina.nome,
                 total_doses=total,
                 total_deslocamentos=deslocados,
-                taxa_deslocamento=round(deslocados / total * 100, 2) if total else 0.0,
+                total_indeterminado=indeterminado,
+                taxa_deslocamento=(
+                    round(deslocados / base_conhecida * 100, 2)
+                    if base_conhecida
+                    else 0.0
+                ),
                 centro_referencia_id=municipios[0].municipio_id if municipios else None,
                 centro_referencia_nome=municipios[0].municipio_nome if municipios else None,
                 municipios=municipios,

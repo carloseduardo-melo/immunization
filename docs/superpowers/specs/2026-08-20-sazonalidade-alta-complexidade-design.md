@@ -139,8 +139,19 @@ Regras:
     `status_dado != 'DADO_INCONSISTENTE'`.
   - `total_deslocamentos`: dentro dessa mesma base, os com
     `teve_deslocamento == true`.
-  - `taxa_deslocamento`: `total_deslocamentos / total_doses * 100`, 2 casas;
-    `0.0` quando `total_doses == 0`.
+  - `total_indeterminado`: dentro dessa mesma base, os com
+    `teve_deslocamento IS NULL` (origem desconhecida - ETL nao tem municipio
+    de residencia e marca `DESLOCAMENTO_INDETERMINADO`). O criterio e
+    `teve_deslocamento IS NULL`, nao `status_dado`, porque e o que garante por
+    construcao que este numero seja subconjunto de `total_doses`.
+  - `taxa_deslocamento`: `total_deslocamentos / (total_doses -
+    total_indeterminado) * 100`, 2 casas; `0.0` quando o denominador for zero.
+    Essas doses entram em `total_doses` (volume aplicado e volume aplicado,
+    e o ranking de municipios depende do total cheio) mas nunca podem entrar
+    no numerador de deslocamento - deixa-las no denominador da taxa diluiria o
+    resultado de forma desigual entre vacinas e municipios, conforme a fatia
+    de origem desconhecida de cada um. A taxa passa a responder "das doses
+    cuja origem conhecemos, quantas foram deslocadas".
   - Exclui `DADO_INCONSISTENTE` do numerador e do denominador - a estatistica
     mais defensavel para este painel. Difere do `taxa_mobilidade` de
     `/dashboard/resumo`, que usa base mista (denominador com inconsistentes,
@@ -148,7 +159,9 @@ Regras:
     do Dashboard para a mesma vacina - e decisao de projeto, nao bug.
 - Top N municipios por vacina: agregacao por `municipio_vacina_id` na mesma base,
   ordenada por doses desc, com `percentual` = doses do municipio / total da
-  vacina * 100 (2 casas). O primeiro da lista e o centro de referencia
+  vacina * 100 (2 casas). Empate resolvido pelo menor `municipio_vacina_id`,
+  para a resposta ser deterministica - o mesmo problema e a mesma solucao do
+  `mes_pico`/`mes_vale` do RF17. O primeiro da lista e o centro de referencia
   (`centro_referencia_*` no topo do item, para a tela nao precisar olhar dentro
   da lista).
 - Vacina de alta complexidade sem nenhum registro aparece com zeros e
@@ -173,6 +186,7 @@ class VacinaAltaComplexidadeItem(BaseModel):
     vacina_nome: str
     total_doses: int
     total_deslocamentos: int
+    total_indeterminado: int
     taxa_deslocamento: float
     centro_referencia_id: Optional[str]
     centro_referencia_nome: Optional[str]

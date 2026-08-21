@@ -176,3 +176,79 @@ def test_sem_vacinas_de_alta_complexidade_devolve_lista_vazia(db_session):
 
     assert corpo["items"] == []
     assert corpo["total_vacinas"] == 0
+
+
+def test_desempate_de_vacinas_e_de_municipios_e_deterministico(db_session):
+    """Duas vacinas empatadas em total_doses (100) e, dentro de uma delas, dois
+    municípios empatados em doses (50) - os dois cortes precisam de uma chave
+    secundária ou o resultado muda de execução para execução sem o dado mudar."""
+    db_session.add_all(
+        [
+            Municipio(id_ibge="2303709", nome="Caucaia", uf="CE"),
+            Municipio(id_ibge="2304400", nome="Fortaleza", uf="CE"),
+        ]
+    )
+    zilfovir = Vacina(nome="Zilfovir", alta_complexidade=True)
+    anfotericina = Vacina(nome="Anfotericina", alta_complexidade=True)
+    db_session.add_all([zilfovir, anfotericina])
+    db_session.commit()
+    db_session.refresh(zilfovir)
+    db_session.refresh(anfotericina)
+
+    db_session.add_all(
+        [
+            # Zilfovir: 2304400 e 2303709 empatados em 50 doses cada.
+            _registro(zilfovir.id, "2304400", 50),
+            _registro(zilfovir.id, "2303709", 50),
+            # Anfotericina: mesmo total_doses (100) de Zilfovir.
+            _registro(anfotericina.id, "2304400", 100),
+        ]
+    )
+    db_session.commit()
+    headers = auth_headers(db_session)
+
+    itens = client.get("/alta-complexidade", headers=headers).json()["items"]
+
+    assert [item["vacina_nome"] for item in itens] == ["Anfotericina", "Zilfovir"], (
+        "empate em total_doses (100) resolvido em ordem alfabética de vacina_nome"
+    )
+
+    zilfovir_item = itens[1]
+    assert zilfovir_item["municipios"][0]["municipio_id"] == "2303709", (
+        "empate de 50 doses entre municípios resolvido pelo menor "
+        "municipio_vacina_id (2303709 < 2304400)"
+    )
+    assert zilfovir_item["centro_referencia_id"] == "2303709"
+
+
+def test_total_indeterminado_reduz_o_denominador_da_taxa(db_session):
+    """Registros sem município de residência (teve_deslocamento NULL) contam em
+    total_doses mas ficam fora do numerador e do denominador de
+    taxa_deslocamento - senão a taxa fica diluída de forma desigual."""
+    db_session.add(Municipio(id_ibge="2304400", nome="Fortaleza", uf="CE"))
+    vacina = Vacina(nome="Imunoglobulina Antitetânica", alta_complexidade=True)
+    db_session.add(vacina)
+    db_session.commit()
+    db_session.refresh(vacina)
+
+    db_session.add_all(
+        [
+            _registro(vacina.id, "2304400", 60, deslocou=True),
+            _registro(vacina.id, "2304400", 20, deslocou=False),
+            _registro(
+                vacina.id, "2304400", 20, deslocou=None,
+                status="DESLOCAMENTO_INDETERMINADO",
+            ),
+        ]
+    )
+    db_session.commit()
+    headers = auth_headers(db_session)
+
+    item = client.get("/alta-complexidade", headers=headers).json()["items"][0]
+
+    assert item["total_doses"] == 100, "60 + 20 + 20 - a origem indeterminada conta aqui"
+    assert item["total_deslocamentos"] == 60
+    assert item["total_indeterminado"] == 20
+    assert item["taxa_deslocamento"] == 75.0, (
+        "60 / (100 - 20) * 100 = 75.0 - denominador exclui a origem indeterminada"
+    )

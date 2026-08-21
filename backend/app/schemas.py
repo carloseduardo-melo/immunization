@@ -337,6 +337,7 @@ class VacinaAltaComplexidadeItem(BaseModel):
     vacina_nome: str
     total_doses: int
     total_deslocamentos: int
+    total_indeterminado: int
     taxa_deslocamento: float
     centro_referencia_id: Optional[str] = None
     centro_referencia_nome: Optional[str] = None

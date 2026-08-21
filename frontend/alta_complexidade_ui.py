@@ -63,6 +63,17 @@ def _render_ranking(item):
         linha[3].markdown(f"{municipio['percentual']}%")
 
 
+def _legenda_indeterminado(item) -> str:
+    """Fatia das doses com origem desconhecida (sem município de residência),
+    calculada sobre total_doses. Vazia quando não há nenhuma - a taxa de
+    deslocamento já cobre o caso comum sem precisar de legenda extra."""
+    total_indeterminado = item["total_indeterminado"]
+    if not total_indeterminado or not item["total_doses"]:
+        return ""
+    percentual = round(total_indeterminado / item["total_doses"] * 100)
+    return f"{percentual}% de origem indeterminada"
+
+
 def _render_vacina(item):
     colunas = st.columns([3, 1.6, 1.6, 2.4])
     colunas[0].markdown(f"**{item['vacina_nome']}**")
@@ -73,6 +84,9 @@ def _render_vacina(item):
         ),
         unsafe_allow_html=True,
     )
+    legenda = _legenda_indeterminado(item)
+    if legenda:
+        colunas[2].caption(legenda)
     colunas[3].markdown(item["centro_referencia_nome"] or "—")
 
     with st.expander(f"Municípios de aplicação — {item['vacina_nome']}"):

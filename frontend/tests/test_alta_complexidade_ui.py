@@ -17,6 +17,7 @@ def _payload():
                 "vacina_nome": "Imunoglobulina",
                 "total_doses": 200,
                 "total_deslocamentos": 130,
+                "total_indeterminado": 0,
                 "taxa_deslocamento": 65.0,
                 "centro_referencia_id": "2304400",
                 "centro_referencia_nome": "Fortaleza",
@@ -34,6 +35,7 @@ def _payload():
                 "vacina_nome": "Raiva humana",
                 "total_doses": 100,
                 "total_deslocamentos": 30,
+                "total_indeterminado": 25,
                 "taxa_deslocamento": 30.0,
                 "centro_referencia_id": "2312908",
                 "centro_referencia_nome": "Sobral",
@@ -47,6 +49,7 @@ def _payload():
                 "vacina_nome": "Palivizumabe",
                 "total_doses": 40,
                 "total_deslocamentos": 4,
+                "total_indeterminado": 0,
                 "taxa_deslocamento": 10.0,
                 "centro_referencia_id": "2304400",
                 "centro_referencia_nome": "Fortaleza",
@@ -60,6 +63,7 @@ def _payload():
                 "vacina_nome": "Soro antirrábico",
                 "total_doses": 0,
                 "total_deslocamentos": 0,
+                "total_indeterminado": 0,
                 "taxa_deslocamento": 0.0,
                 "centro_referencia_id": None,
                 "centro_referencia_nome": None,
@@ -218,3 +222,39 @@ def test_tela_sem_token_avisa_e_nao_consulta(mock_warning, mock_dados):
         "É necessário estar autenticado para visualizar este painel."
     )
     mock_dados.assert_not_called()
+
+
+@patch("alta_complexidade_ui.alta_complexidade")
+def test_legenda_de_origem_indeterminada_aparece_quando_maior_que_zero(mock_dados):
+    mock_dados.return_value = _payload()
+
+    at = _abrir().run()
+
+    assert not at.exception
+    legendas = [c.value for c in at.caption if c.value]
+    assert any("25% de origem indeterminada" in legenda for legenda in legendas), (
+        "Raiva humana tem total_indeterminado=25 sobre total_doses=100"
+    )
+
+
+@patch("alta_complexidade_ui.alta_complexidade")
+def test_legenda_de_origem_indeterminada_nao_aparece_quando_zero(mock_dados):
+    dados = _payload()
+    dados["items"] = [dados["items"][0]]  # Imunoglobulina: total_indeterminado=0
+    dados["total_vacinas"] = 1
+    mock_dados.return_value = dados
+
+    at = _abrir().run()
+
+    assert not at.exception
+    legendas = [c.value for c in at.caption if c.value]
+    assert not any("origem indeterminada" in legenda for legenda in legendas)
+
+
+def test_tom_taxa_nas_fronteiras_dos_limiares():
+    """25 e 50 sao as fronteiras da regra: danger acima de 50%, warning de 25%
+    a 50%, neutral abaixo de 25%."""
+    import alta_complexidade_ui
+
+    assert alta_complexidade_ui._tom_taxa(50) == "warning"
+    assert alta_complexidade_ui._tom_taxa(25) == "warning"
