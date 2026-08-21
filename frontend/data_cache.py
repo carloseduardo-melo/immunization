@@ -22,9 +22,11 @@ from api_client import (
     listar_alertas_completude,
     listar_todos_municipios,
     listar_vacinas,
+    obter_alta_complexidade,
     obter_fluxo_intermunicipal,
     obter_ranking_fluxo,
     obter_resumo_dashboard,
+    obter_sazonalidade,
 )
 
 TTL_CADASTRO = 600
@@ -111,3 +113,24 @@ def alertas_completude(
         page=page,
         page_size=page_size,
     )
+
+
+@st.cache_data(ttl=TTL_AGREGADO, show_spinner=False)
+def sazonalidade(
+    token: str, vacina_id=None, municipio_id=None, ano_inicio=None, ano_fim=None
+) -> dict:
+    """RF17 - Agregado de 12 linhas; o TTL só evita repetir a consulta a cada
+    rerun do Streamlit."""
+    return obter_sazonalidade(
+        token,
+        vacina_id=vacina_id,
+        municipio_id=municipio_id,
+        ano_inicio=ano_inicio,
+        ano_fim=ano_fim,
+    )
+
+
+@st.cache_data(ttl=TTL_AGREGADO, show_spinner=False)
+def alta_complexidade(token: str, top_municipios: int = 3) -> dict:
+    """RF18 - Poucas vacinas por resposta, mesmo TTL dos demais agregados."""
+    return obter_alta_complexidade(token, top_municipios=top_municipios)
