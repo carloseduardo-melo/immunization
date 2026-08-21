@@ -4,10 +4,14 @@ Para cada vacina marcada com `alta_complexidade`, mostra a taxa de deslocamento
 e os municípios de maior volume de aplicação - o primeiro deles é o centro de
 referência regional.
 
-A base de cálculo (registros ativos, exceto DADO_INCONSISTENTE) é a mesma do
-`taxa_mobilidade` de /dashboard/resumo, para os dois painéis não se
-contradizerem. A `mv_fluxo_intermunicipal` não serve aqui: ela só contém
-registros com deslocamento real, e a taxa precisa do denominador completo.
+A base de cálculo exclui DADO_INCONSISTENTE tanto do numerador (doses
+deslocadas) quanto do denominador (total de doses) - a estatística mais
+defensável para este painel. Isso difere do `taxa_mobilidade` de
+/dashboard/resumo, que usa base mista (denominador com inconsistentes,
+numerador sem); por isso a taxa de deslocamento aqui pode divergir da taxa de
+mobilidade do Dashboard para a mesma vacina - é decisão de projeto, não bug.
+A `mv_fluxo_intermunicipal` não serve aqui: ela só contém registros com
+deslocamento real, e a taxa precisa do denominador completo.
 """
 
 from collections import defaultdict

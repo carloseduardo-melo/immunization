@@ -141,8 +141,11 @@ Regras:
     `teve_deslocamento == true`.
   - `taxa_deslocamento`: `total_deslocamentos / total_doses * 100`, 2 casas;
     `0.0` quando `total_doses == 0`.
-  - Mesma base do `taxa_mobilidade` de `/dashboard/resumo`, para os dois paineis
-    nao se contradizerem.
+  - Exclui `DADO_INCONSISTENTE` do numerador e do denominador - a estatistica
+    mais defensavel para este painel. Difere do `taxa_mobilidade` de
+    `/dashboard/resumo`, que usa base mista (denominador com inconsistentes,
+    numerador sem); por isso a taxa aqui pode divergir da taxa de mobilidade
+    do Dashboard para a mesma vacina - e decisao de projeto, nao bug.
 - Top N municipios por vacina: agregacao por `municipio_vacina_id` na mesma base,
   ordenada por doses desc, com `percentual` = doses do municipio / total da
   vacina * 100 (2 casas). O primeiro da lista e o centro de referencia
