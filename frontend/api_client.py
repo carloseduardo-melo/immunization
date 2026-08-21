@@ -221,3 +221,34 @@ def recalcular_completude(token: str, k: float = 2.0) -> dict:
     # A varredura agrega milhões de registros; o timeout padrão de 10s estoura
     # antes dela terminar na base real, então usamos um teto maior aqui.
     return _request("POST", "/completude/recalcular", token, params={"k": k}, timeout=120)
+
+
+# --- SAZONALIDADE (RF17) ---
+
+
+def obter_sazonalidade(
+    token: str,
+    vacina_id: Optional[int] = None,
+    municipio_id: Optional[str] = None,
+    ano_inicio: Optional[int] = None,
+    ano_fim: Optional[int] = None,
+) -> dict:
+    params: dict[str, Any] = {}
+    if vacina_id:
+        params["vacina_id"] = vacina_id
+    if municipio_id:
+        params["municipio_id"] = municipio_id
+    if ano_inicio:
+        params["ano_inicio"] = ano_inicio
+    if ano_fim:
+        params["ano_fim"] = ano_fim
+    return _request("GET", "/sazonalidade", token, params=params)
+
+
+# --- ALTA COMPLEXIDADE (RF18) ---
+
+
+def obter_alta_complexidade(token: str, top_municipios: int = 3) -> dict:
+    return _request(
+        "GET", "/alta-complexidade", token, params={"top_municipios": top_municipios}
+    )

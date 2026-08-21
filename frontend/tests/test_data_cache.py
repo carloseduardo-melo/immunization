@@ -17,6 +17,8 @@ def _limpar_cache():
         data_cache.ranking_fluxo,
         data_cache.resumo_dashboard,
         data_cache.alertas_completude,
+        data_cache.sazonalidade,
+        data_cache.alta_complexidade,
     ):
         funcao.clear()
     yield
@@ -155,3 +157,38 @@ def test_ttls_sao_coerentes_com_o_tipo_de_dado():
     """Cadastro muda pouco e pode viver mais; agregados derivam da view, que é
     reatualizada a cada escrita, então precisam expirar antes."""
     assert data_cache.TTL_AGREGADO < data_cache.TTL_CADASTRO
+
+
+@patch("data_cache.obter_sazonalidade")
+def test_sazonalidade_repassa_os_filtros(mock_obter):
+    mock_obter.return_value = {"kpis": {}, "meses": []}
+
+    data_cache.sazonalidade(
+        "token", vacina_id=7, municipio_id="2304400", ano_inicio=2023, ano_fim=2024
+    )
+
+    assert mock_obter.call_args.kwargs == {
+        "vacina_id": 7,
+        "municipio_id": "2304400",
+        "ano_inicio": 2023,
+        "ano_fim": 2024,
+    }
+
+
+@patch("data_cache.obter_sazonalidade")
+def test_sazonalidade_nao_repete_a_chamada_http(mock_obter):
+    mock_obter.return_value = {"kpis": {}, "meses": []}
+
+    data_cache.sazonalidade("token")
+    data_cache.sazonalidade("token")
+
+    assert mock_obter.call_count == 1
+
+
+@patch("data_cache.obter_alta_complexidade")
+def test_alta_complexidade_repassa_o_top_municipios(mock_obter):
+    mock_obter.return_value = {"items": [], "total_vacinas": 0}
+
+    data_cache.alta_complexidade("token", top_municipios=5)
+
+    assert mock_obter.call_args.kwargs == {"top_municipios": 5}

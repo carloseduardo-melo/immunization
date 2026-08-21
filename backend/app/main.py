@@ -12,6 +12,8 @@ from app.routers.vacinas import router as vacinas_router
 from app.routers.dashboard import router as dashboard_router
 from app.routers.fluxo import router as fluxo_router
 from app.routers.completude import router as completude_router
+from app.routers.sazonalidade import router as sazonalidade_router
+from app.routers.alta_complexidade import router as alta_complexidade_router
 from app.security import ALGORITHM, SECRET_KEY
 
 API_DESCRIPTION = """
@@ -60,6 +62,20 @@ OPENAPI_TAGS = [
         "description": (
             "Alertas de completude de dados: varredura automática de meses/municípios "
             "fora do padrão e gestão do status dos alertas (perfil ADMIN para escrita)."
+        ),
+    },
+    {
+        "name": "Sazonalidade",
+        "description": (
+            "Volume de vacinação por mês do ano (Jan a Dez), com índice de "
+            "sazonalidade, pico e vale, para apoiar o planejamento de campanhas."
+        ),
+    },
+    {
+        "name": "Alta Complexidade",
+        "description": (
+            "Vacinas de alta complexidade: taxa de deslocamento de cada uma e os "
+            "municípios de maior volume de aplicação (centros de referência)."
         ),
     },
 ]
@@ -118,6 +134,8 @@ app.include_router(registros_router)
 app.include_router(dashboard_router)
 app.include_router(fluxo_router)
 app.include_router(completude_router)
+app.include_router(sazonalidade_router)
+app.include_router(alta_complexidade_router)
 
 @app.get("/health")
 def health_check():

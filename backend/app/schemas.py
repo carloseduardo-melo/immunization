@@ -291,3 +291,59 @@ class ResultadoVarredura(BaseModel):
     alertas_atualizados: int
     municipios_analisados: int
     meses_analisados: int
+
+
+# ==========================================
+# SAZONALIDADE (RF17)
+# ==========================================
+
+
+class SazonalidadeMes(BaseModel):
+    mes: int
+    nome_mes: str
+    total_doses: int
+    indice_sazonalidade: float
+
+
+class SazonalidadeKPIs(BaseModel):
+    total_periodo: int
+    media_mensal: float
+    mes_pico: Optional[int] = None
+    mes_pico_nome: Optional[str] = None
+    mes_vale: Optional[int] = None
+    mes_vale_nome: Optional[str] = None
+    amplitude: float
+
+
+class SazonalidadeResponse(BaseModel):
+    kpis: SazonalidadeKPIs
+    meses: list[SazonalidadeMes]
+
+
+# ==========================================
+# ALTA COMPLEXIDADE (RF18)
+# ==========================================
+
+
+class MunicipioAplicacaoItem(BaseModel):
+    municipio_id: str
+    municipio_nome: str
+    total_doses: int
+    percentual: float
+
+
+class VacinaAltaComplexidadeItem(BaseModel):
+    vacina_id: int
+    vacina_nome: str
+    total_doses: int
+    total_deslocamentos: int
+    total_indeterminado: int
+    taxa_deslocamento: float
+    centro_referencia_id: Optional[str] = None
+    centro_referencia_nome: Optional[str] = None
+    municipios: list[MunicipioAplicacaoItem]
+
+
+class AltaComplexidadeResponse(BaseModel):
+    items: list[VacinaAltaComplexidadeItem]
+    total_vacinas: int
