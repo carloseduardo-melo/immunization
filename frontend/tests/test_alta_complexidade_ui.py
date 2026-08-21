@@ -5,6 +5,7 @@ from unittest.mock import patch
 from streamlit.testing.v1 import AppTest
 
 from api_client import ApiError
+from theme import BADGE_TONES
 
 
 def _payload():
@@ -91,6 +92,44 @@ def test_tela_lista_as_vacinas_e_os_centros(mock_dados):
     assert "Fortaleza" in textos
     assert "65.0%" in textos
     assert "—" in textos, "vacina sem registro não tem centro de referência"
+
+
+def _badge_com_rotulo(markdowns, rotulo):
+    """Devolve o valor markdown do único badge cujo rótulo é o percentual dado.
+
+    Filtra por "background:" para não confundir com o percentual simples de
+    município no ranking (que não é um badge - não tem esse estilo inline).
+    """
+    candidatos = [
+        m.value
+        for m in markdowns
+        if m.value and rotulo in m.value and "background:" in m.value
+    ]
+    assert len(candidatos) == 1, f"esperava um único badge com rótulo {rotulo!r}"
+    return candidatos[0]
+
+
+@patch("alta_complexidade_ui.alta_complexidade")
+def test_tom_do_badge_reflete_a_taxa_de_deslocamento(mock_dados):
+    """Amarra o tom renderizado à cor real de theme.BADGE_TONES, por vacina -
+    não só à presença do texto do percentual - para pegar limiares trocados ou
+    um tom fixo que passaria despercebido apenas conferindo a cobertura."""
+    mock_dados.return_value = _payload()
+
+    at = _abrir().run()
+
+    assert not at.exception
+    _, cor_danger = BADGE_TONES["danger"]
+    _, cor_warning = BADGE_TONES["warning"]
+    _, cor_neutral = BADGE_TONES["neutral"]
+
+    badge_65 = _badge_com_rotulo(at.markdown, "65.0%")
+    badge_30 = _badge_com_rotulo(at.markdown, "30.0%")
+    badge_10 = _badge_com_rotulo(at.markdown, "10.0%")
+
+    assert cor_danger in badge_65, "Imunoglobulina (65%) deveria usar o tom danger"
+    assert cor_warning in badge_30, "Raiva humana (30%) deveria usar o tom warning"
+    assert cor_neutral in badge_10, "Palivizumabe (10%) deveria usar o tom neutral"
 
 
 @patch("alta_complexidade_ui.alta_complexidade")
