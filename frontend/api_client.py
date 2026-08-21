@@ -222,6 +222,7 @@ def recalcular_completude(token: str, k: float = 2.0) -> dict:
     # antes dela terminar na base real, então usamos um teto maior aqui.
     return _request("POST", "/completude/recalcular", token, params={"k": k}, timeout=120)
 
+
 # --- SAZONALIDADE (RF17) ---
 
 
