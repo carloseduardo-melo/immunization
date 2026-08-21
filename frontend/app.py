@@ -9,6 +9,7 @@ from completude_ui import render_completude_section
 from fluxo_ui import render_fluxo_intermunicipal_section
 from municipios_ui import render_municipios_section
 from registros_ui import render_registros_section
+from sazonalidade_ui import render_sazonalidade_section
 from ui_dashboard import render_dashboard_section  # <-- IMPORTAÇÃO DO DASHBOARD
 from theme import COLORS, inject_global_styles
 
@@ -526,6 +527,7 @@ else:
     PAGINAS = {
         "dashboard": "📊 Dashboard Geral",
         "fluxo": "🔀 Fluxo Intermunicipal",
+        "sazonalidade": "📅 Sazonalidade",
         "completude": "⚠️ Alertas de Completude",
         "registros": "💉 Registros de Vacinação",
         "municipios": "🏙️ Gestão de Municípios & Vacinas",
@@ -583,6 +585,8 @@ else:
         render_dashboard_section()
     elif st.session_state["pagina_ativa"] == "fluxo":
         render_fluxo_intermunicipal_section()
+    elif st.session_state["pagina_ativa"] == "sazonalidade":
+        render_sazonalidade_section()
     elif st.session_state["pagina_ativa"] == "completude":
         render_completude_section()
     elif st.session_state["pagina_ativa"] == "municipios":
