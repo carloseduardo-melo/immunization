@@ -9,7 +9,7 @@ import streamlit as st
 
 from api_client import ApiError, atualizar_status_alerta, recalcular_completude
 from data_cache import alertas_completude, listar_municipios_resumido
-from exportacao_ui import botao_exportar_csv
+from exportacao_ui import botao_exportar_csv, botao_exportar_pdf
 from theme import badge_html
 
 # Rótulo exibido e tom do badge de cada status do banco.
@@ -174,14 +174,23 @@ def render_completude_section():
         status, municipio_id, ano = _render_filtros(_municipios(token))
 
     # RF19. Antes da consulta, para o botão sobreviver ao recorte sem alertas.
-    _, col_csv = st.columns([5, 1.4])
+    filtros = {"status": status, "municipio_id": municipio_id, "ano": ano}
+    _, col_csv, col_pdf = st.columns([4, 1.4, 1.4])
     with col_csv:
         botao_exportar_csv(
             token,
             "completude",
-            {"status": status, "municipio_id": municipio_id, "ano": ano},
+            filtros,
             key="completude",
             nome_arquivo="alertas-completude.csv",
+        )
+    with col_pdf:
+        botao_exportar_pdf(
+            token,
+            "completude",
+            filtros,
+            key="completude",
+            nome_arquivo="alertas-completude.pdf",
         )
 
     try:

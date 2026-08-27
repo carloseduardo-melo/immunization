@@ -3,7 +3,7 @@ from typing import Any, Optional
 
 import streamlit as st
 
-from exportacao_ui import botao_exportar_csv
+from exportacao_ui import botao_exportar_csv, botao_exportar_pdf
 from api_client import (
     ApiError,
     atualizar_municipio,
@@ -106,12 +106,10 @@ def render_municipios_section():
     # Cabeçalho da Página
     # A página tem duas listagens (municípios e vacinas): a exportação em CSV
     # (RF19) fica no cabeçalho de cada card, para cada uma levar o seu recorte.
-    col_title, col_space, col_pdf = st.columns([6, 4, 1.5])
+    col_title, col_space = st.columns([6, 5.5])
     with col_title:
         st.markdown('<div class="page-title">Cadastro de município e vacina</div>', unsafe_allow_html=True)
         st.markdown('<div class="page-subtitle">Administração do catálogo de municípios e imunobiológicos</div>', unsafe_allow_html=True)
-    with col_pdf:
-        st.button("Exportar PDF", type="primary", use_container_width=True, key="municipios_exportar_pdf")
 
     # --- SEÇÃO DE MUNICÍPIOS ---
     if pode_editar:
@@ -191,20 +189,18 @@ def _render_formulario_municipio(token: str):
 
 def _render_lista_municipios(token: str, pode_editar: bool):
     with st.container(border=True):
-        col_titulo, col_space, col_busca, col_csv = st.columns([3, 2.2, 3, 1.8])
+        col_titulo, col_space, col_busca, col_csv, col_pdf = st.columns([3, 0.6, 3, 1.7, 1.7])
         col_titulo.markdown('<div class="card-title" style="margin-top: 6px;">Municípios cadastrados</div>', unsafe_allow_html=True)
         
         with col_busca:
             busca = st.text_input("Buscar", value=st.session_state["municipios_busca"], placeholder="Buscar município", label_visibility="collapsed", key="input_busca_mun")
         # RF19. Trocar a busca faz um st.rerun(), então o estado lido aqui é
         # sempre o mesmo texto que filtra a listagem abaixo.
+        filtros_mun = {"search": st.session_state["municipios_busca"]}
         with col_csv:
-            botao_exportar_csv(
-                token,
-                "municipios",
-                {"search": st.session_state["municipios_busca"]},
-                key="municipios",
-            )
+            botao_exportar_csv(token, "municipios", filtros_mun, key="municipios")
+        with col_pdf:
+            botao_exportar_pdf(token, "municipios", filtros_mun, key="municipios")
 
 
         if busca != st.session_state["municipios_busca"]:
@@ -350,7 +346,7 @@ def _render_formulario_vacina(token: str, is_admin: bool):
 
 def _render_lista_vacinas(token: str, pode_editar: bool):
     with st.container(border=True):
-        col_titulo, col_space, col_busca, col_csv = st.columns([3, 2.2, 3, 1.8])
+        col_titulo, col_space, col_busca, col_csv, col_pdf = st.columns([3, 0.6, 3, 1.7, 1.7])
         col_titulo.markdown('<div class="card-title" style="margin-top: 6px;">Vacinas cadastradas</div>', unsafe_allow_html=True)
         
         with col_busca:
@@ -366,13 +362,11 @@ def _render_lista_vacinas(token: str, pode_editar: bool):
                 st.session_state["vacinas_page"] = 1
                 st.rerun()
 
+        filtros_vac = {"search": st.session_state["vacinas_busca"]}
         with col_csv:
-            botao_exportar_csv(
-                token,
-                "vacinas",
-                {"search": st.session_state["vacinas_busca"]},
-                key="vacinas",
-            )
+            botao_exportar_csv(token, "vacinas", filtros_vac, key="vacinas")
+        with col_pdf:
+            botao_exportar_pdf(token, "vacinas", filtros_vac, key="vacinas")
 
         try:
             with st.spinner("Carregando vacinas..."):

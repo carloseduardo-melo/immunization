@@ -11,7 +11,7 @@ from api_client import (
     listar_registros,
 )
 from data_cache import listar_municipios_resumido, listar_vacinas_resumido
-from exportacao_ui import botao_exportar_csv
+from exportacao_ui import botao_exportar_csv, botao_exportar_pdf
 from theme import badge_html as _badge_html
 
 
@@ -88,8 +88,6 @@ def render_registros_section():
     with col_title:
         st.markdown('<div class="page-title">Registros de vacinação</div>', unsafe_allow_html=True)
         st.markdown('<div class="page-subtitle">Cadastre, edite e consulte registros individuais de vacinação</div>', unsafe_allow_html=True)
-    with col_pdf:
-        st.button("Exportar PDF", type="primary", use_container_width=True, key="registros_exportar_pdf")
 
     # 2. Card: Novo Registro
     _render_formulario(token)
@@ -104,8 +102,11 @@ def render_registros_section():
     # cabeçalho: os seletores e a busca só atualizam o estado quando são
     # renderizados, e o arquivo precisa sair com o recorte desta tela, não com o
     # da interação anterior.
+    filtros = _filtros_exportacao()
     with col_csv:
-        botao_exportar_csv(token, "registros", _filtros_exportacao(), key="registros")
+        botao_exportar_csv(token, "registros", filtros, key="registros")
+    with col_pdf:
+        botao_exportar_pdf(token, "registros", filtros, key="registros")
 
 
 _MAPA_STATUS = {

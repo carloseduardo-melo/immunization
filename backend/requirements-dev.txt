@@ -8,3 +8,6 @@ passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
 sqlalchemy==2.0.36
 psycopg2-binary==2.9.10
+reportlab==4.2.5
+# Leitura do texto do PDF nos testes do RF20
+pypdf==5.1.0
