@@ -56,6 +56,46 @@ def _alerta_out(alerta: AlertaCompletude) -> AlertaCompletudeOut:
     )
 
 
+def construir_query_alertas(
+    db: Session,
+    current_user,
+    status: Optional[str] = None,
+    municipio_id: Optional[str] = None,
+    ano: Optional[int] = None,
+):
+    """Devolve (base, query) para os alertas do recorte pedido.
+
+    `base` tem os filtros de município e ano, mas não o de status - é sobre ela
+    que os KPIs da tela são calculados. `query` acrescenta o filtro de status e
+    já vem ordenada do mês mais recente para o mais antigo, pronta tanto para a
+    listagem paginada quanto para a exportação em CSV (RF19).
+
+    Gestores municipais são restringidos aqui, uma vez só, para que nenhuma das
+    duas saídas possa escapar do escopo do perfil."""
+    if current_user.role == "GESTOR_MUNICIPAL":
+        validate_municipio_scope(current_user, municipio_id)
+        municipio_id = current_user.municipio_alocado_id
+
+    # Filtros de recorte (sem o status): valem para a listagem e para os KPIs.
+    base = db.query(AlertaCompletude)
+    if municipio_id:
+        base = base.filter(AlertaCompletude.municipio_id == municipio_id)
+    if ano:
+        base = base.filter(AlertaCompletude.referencia_ano == ano)
+
+    query = base
+    if status:
+        query = query.filter(AlertaCompletude.status == status)
+
+    # joinedload evita um SELECT extra por linha para resolver municipio.nome.
+    query = query.options(joinedload(AlertaCompletude.municipio)).order_by(
+        AlertaCompletude.referencia_ano.desc(),
+        AlertaCompletude.referencia_mes.desc(),
+        AlertaCompletude.id,
+    )
+    return base, query
+
+
 @router.get(
     "/alertas",
     response_model=PaginatedAlertas,
@@ -84,16 +124,9 @@ def listar_alertas(
     if page_size > PAGE_SIZE_MAXIMO:
         page_size = PAGE_SIZE_MAXIMO
 
-    if current_user.role == "GESTOR_MUNICIPAL":
-        validate_municipio_scope(current_user, municipio_id)
-        municipio_id = current_user.municipio_alocado_id
-
-    # Filtros de recorte (sem o status): valem para a listagem e para os KPIs.
-    base = db.query(AlertaCompletude)
-    if municipio_id:
-        base = base.filter(AlertaCompletude.municipio_id == municipio_id)
-    if ano:
-        base = base.filter(AlertaCompletude.referencia_ano == ano)
+    base, query = construir_query_alertas(
+        db, current_user, status=status, municipio_id=municipio_id, ano=ano
+    )
 
     contagens = dict(
         base.with_entities(AlertaCompletude.status, func.count(AlertaCompletude.id))
@@ -105,24 +138,9 @@ def listar_alertas(
         func.count(func.distinct(AlertaCompletude.municipio_id))
     ).scalar()
 
-    query = base
-    if status:
-        query = query.filter(AlertaCompletude.status == status)
-
     total = query.count()
     total_pages = ceil(total / page_size) if total else 0
-    linhas = (
-        # joinedload evita um SELECT extra por linha para resolver municipio.nome.
-        query.options(joinedload(AlertaCompletude.municipio))
-        .order_by(
-            AlertaCompletude.referencia_ano.desc(),
-            AlertaCompletude.referencia_mes.desc(),
-            AlertaCompletude.id,
-        )
-        .offset((page - 1) * page_size)
-        .limit(page_size)
-        .all()
-    )
+    linhas = query.offset((page - 1) * page_size).limit(page_size).all()
 
     return PaginatedAlertas(
         items=[_alerta_out(alerta) for alerta in linhas],

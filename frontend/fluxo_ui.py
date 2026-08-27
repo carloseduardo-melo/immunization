@@ -20,6 +20,7 @@ import streamlit as st
 
 from api_client import ApiError
 from data_cache import fluxo_intermunicipal, listar_municipios_resumido, listar_vacinas_resumido, ranking_fluxo
+from exportacao_ui import botao_exportar_csv
 from theme import COLORS, badge_html
 
 # Teto de segurança do mapa de calor. Com o "top N" máximo (25) a matriz tem no
@@ -172,6 +173,14 @@ def render_fluxo_intermunicipal_section():
     filtros = dict(
         vacina_id=vacina_id, data_inicio=data_inicio, data_fim=data_fim, municipio_id=municipio_id
     )
+
+    # RF19. Fica logo abaixo dos filtros, e não junto da tabela, para continuar
+    # disponível mesmo quando o recorte não tem nenhum deslocamento.
+    _, col_csv = st.columns([5, 1.4])
+    with col_csv:
+        botao_exportar_csv(
+            token, "fluxo", filtros, key="fluxo", nome_arquivo="fluxo-intermunicipal.csv"
+        )
 
     top_n = st.session_state["fluxo_top_n"]
 

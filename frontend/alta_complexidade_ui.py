@@ -9,6 +9,7 @@ import streamlit as st
 
 from api_client import ApiError
 from data_cache import alta_complexidade
+from exportacao_ui import botao_exportar_csv
 from theme import badge_html
 
 OPCOES_TOP = [3, 5, 10]
@@ -113,6 +114,17 @@ def render_alta_complexidade_section():
     with st.container(border=True):
         top_municipios = st.selectbox(
             "Municípios por vacina", OPCOES_TOP, key="alta_top_municipios"
+        )
+
+    # RF19. Antes da consulta, para o botão sobreviver ao painel sem vacinas.
+    _, col_csv = st.columns([5, 1.4])
+    with col_csv:
+        botao_exportar_csv(
+            token,
+            "alta-complexidade",
+            {"top_municipios": int(top_municipios)},
+            key="alta_complexidade",
+            nome_arquivo="alta-complexidade.csv",
         )
 
     try:

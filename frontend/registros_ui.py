@@ -11,6 +11,7 @@ from api_client import (
     listar_registros,
 )
 from data_cache import listar_municipios_resumido, listar_vacinas_resumido
+from exportacao_ui import botao_exportar_csv
 from theme import badge_html as _badge_html
 
 
@@ -87,8 +88,6 @@ def render_registros_section():
     with col_title:
         st.markdown('<div class="page-title">Registros de vacinação</div>', unsafe_allow_html=True)
         st.markdown('<div class="page-subtitle">Cadastre, edite e consulte registros individuais de vacinação</div>', unsafe_allow_html=True)
-    with col_csv:
-        st.button("Exportar CSV", use_container_width=True, key="registros_exportar_csv")
     with col_pdf:
         st.button("Exportar PDF", type="primary", use_container_width=True, key="registros_exportar_pdf")
 
@@ -100,6 +99,13 @@ def render_registros_section():
 
     # 4. Card: Tabela de Registros
     _render_lista(token)
+
+    # 5. Exportação (RF19). Desenhada por último, mas dentro da coluna do
+    # cabeçalho: os seletores e a busca só atualizam o estado quando são
+    # renderizados, e o arquivo precisa sair com o recorte desta tela, não com o
+    # da interação anterior.
+    with col_csv:
+        botao_exportar_csv(token, "registros", _filtros_exportacao(), key="registros")
 
 
 _MAPA_STATUS = {
@@ -223,6 +229,21 @@ def _montar_filtros_query(filtro_mun: str, filtro_vacina: str, filtro_periodo: s
         params["idade_max"] = idade_max
 
     return params
+
+
+def _filtros_exportacao() -> dict[str, Any]:
+    """Filtros que a tela está aplicando agora, no formato aceito pela API.
+
+    Lê o `st.session_state`, e não os widgets, porque o botão Exportar fica no
+    cabeçalho da página - acima dos seletores, mas sempre um rerun depois deles."""
+    filtros = _montar_filtros_query(
+        st.session_state["filtro_mun"],
+        st.session_state["filtro_vacina"],
+        st.session_state["filtro_periodo"],
+        st.session_state["filtro_idade"],
+    )
+    filtros["search"] = st.session_state["reg_busca"]
+    return filtros
 
 
 def _render_filtros():
