@@ -212,6 +212,44 @@ A pipeline de CD poderá ser utilizada para:
 
 ---
 
+# 🔍 Log de Auditoria (RF21, RF22 e RNF09)
+
+Toda operação de **Update** ou **Delete** em `registros_vacinacao`, `municipios`
+e `vacinas` grava automaticamente uma linha em `log_auditoria` com a tabela, o
+id do registro, a ação, o usuário autor, o valor antigo, o valor novo (ambos em
+JSON) e a data/hora.
+
+A gravação acontece na camada de serviço (`backend/app/services/auditoria.py`),
+chamada pelos routers no mesmo commit da alteração. O frontend não envia nada
+disso — não há como uma tela deixar de registrar uma alteração.
+
+A consulta fica em `GET /auditoria`, restrita ao perfil **Administrador**, com
+filtros combináveis por autor, tabela e período. Na interface, o item de menu
+**🔍 Log de Auditoria** só aparece para esse perfil.
+
+## Imutabilidade e retenção
+
+A API é **somente leitura** sobre `log_auditoria`: não existe nenhum endpoint de
+POST, PUT, PATCH ou DELETE sobre o log, e um teste automatizado varre as rotas
+registradas para garantir que isso continue verdadeiro.
+
+A **retenção mínima é de 30 dias**, alinhada à janela de backup do banco. O
+expurgo do que passou dessa janela é uma rotina de operação, executada fora da
+aplicação:
+
+```bash
+# Simula (não remove nada) e mostra a janela que seria aplicada
+python scripts/expurgar_auditoria.py --dias 365
+
+# Executa de fato
+python scripts/expurgar_auditoria.py --dias 365 --confirmar
+```
+
+O script recusa qualquer janela menor que 30 dias, para que um erro de digitação
+não apague o log recente.
+
+---
+
 # 👥 Integrantes da Equipe
 
 | Nome                             | Função         |

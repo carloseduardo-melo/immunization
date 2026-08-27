@@ -9,6 +9,7 @@ from app.database import get_db
 from app.dependencies import get_admin_and_estadual, get_current_user
 from app.models import Vacina
 from app.schemas import PaginatedVacinas, VacinaCreate, VacinaOut, VacinaUpdate
+from app.services.auditoria import registrar, serializar
 
 router = APIRouter(prefix="/vacinas", tags=["Vacinas"])
 
@@ -172,8 +173,21 @@ def atualizar_vacina(
                 detail="Apenas administradores podem alterar a complexidade de uma vacina.",
             )
 
+    valores_antigos = serializar(vacina)
+
     vacina.nome = nome_padronizado
     vacina.alta_complexidade = payload.alta_complexidade
+
+    # RF21 - o log entra no mesmo commit da alteração que ele descreve.
+    registrar(
+        db,
+        tabela="vacinas",
+        registro_id=vacina.id,
+        acao="UPDATE",
+        usuario=current_user,
+        valores_antigos=valores_antigos,
+        valores_novos=serializar(vacina),
+    )
     db.commit()
     db.refresh(vacina)
     return vacina
@@ -199,7 +213,18 @@ def desativar_vacina(
     if not vacina:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vacina não encontrada.")
 
+    valores_antigos = serializar(vacina)
     vacina.ativo = False
+
+    registrar(
+        db,
+        tabela="vacinas",
+        registro_id=vacina.id,
+        acao="DELETE",
+        usuario=current_user,
+        valores_antigos=valores_antigos,
+        valores_novos=serializar(vacina),
+    )
     db.commit()
     db.refresh(vacina)
     return vacina

@@ -16,6 +16,7 @@ from app.routers.fluxo import router as fluxo_router
 from app.routers.completude import router as completude_router
 from app.routers.sazonalidade import router as sazonalidade_router
 from app.routers.alta_complexidade import router as alta_complexidade_router
+from app.routers.auditoria import router as auditoria_router
 from app.security import ALGORITHM, SECRET_KEY
 
 API_DESCRIPTION = """
@@ -88,6 +89,14 @@ OPENAPI_TAGS = [
         ),
     },
     {
+        "name": "Auditoria",
+        "description": (
+            "Consulta do log de alterações (RF22), restrita ao perfil "
+            "Administrador. Somente leitura: a API não expõe nenhum caminho de "
+            "escrita ou remoção sobre o log (RNF09)."
+        ),
+    },
+    {
         "name": "Alta Complexidade",
         "description": (
             "Vacinas de alta complexidade: taxa de deslocamento de cada uma e os "
@@ -154,6 +163,7 @@ app.include_router(sazonalidade_router)
 app.include_router(alta_complexidade_router)
 app.include_router(exportacoes_router)
 app.include_router(relatorios_router)
+app.include_router(auditoria_router)
 
 @app.get("/health")
 def health_check():

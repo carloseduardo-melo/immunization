@@ -115,7 +115,9 @@ class LogAuditoria(Base):
     __tablename__ = "log_auditoria"
     id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     tabela = Column(String(50), nullable=False)
-    registro_id = Column(GUID(), nullable=False)
+    # Texto, e não GUID: a mesma coluna guarda o UUID de registros_vacinacao,
+    # o id_ibge de municipios (string de 7 dígitos) e o id inteiro de vacinas.
+    registro_id = Column(String(50), nullable=False)
     acao = Column(String(10), nullable=False)
     usuario_id = Column(GUID(), ForeignKey("usuarios_admin.id"), nullable=False)
     valores_antigos = Column(JSONB, nullable=True)
@@ -124,6 +126,9 @@ class LogAuditoria(Base):
     __table_args__ = (
         CheckConstraint("acao IN ('UPDATE', 'DELETE')", name="chk_log_acao"),
         Index("idx_auditoria_registro", "tabela", "registro_id"),
+        # Filtros do RF22: a tela ordena e recorta por data e filtra por autor.
+        Index("idx_auditoria_criado_em", "criado_em"),
+        Index("idx_auditoria_usuario", "usuario_id"),
     )
 
 

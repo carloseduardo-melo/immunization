@@ -297,3 +297,32 @@ def exportar_csv(token: str, recurso: str, **filtros) -> tuple[bytes, bool]:
 def exportar_pdf(token: str, recurso: str, **filtros) -> tuple[bytes, bool]:
     """RF20 - Baixa o relatório em PDF de `/relatorios/<recurso>`."""
     return _baixar_arquivo(token, f"/relatorios/{recurso}", filtros)
+
+
+# --- AUDITORIA (RF22) ---
+
+def listar_logs_auditoria(
+    token: str,
+    usuario_id: Optional[str] = None,
+    tabela: Optional[str] = None,
+    data_inicio: Optional[str] = None,
+    data_fim: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> dict:
+    """RF22 - Recorte paginado do log de auditoria. Só o perfil ADMIN é aceito."""
+    params: dict[str, Any] = {"page": page, "page_size": page_size}
+    if usuario_id:
+        params["usuario_id"] = usuario_id
+    if tabela:
+        params["tabela"] = tabela
+    if data_inicio:
+        params["data_inicio"] = data_inicio
+    if data_fim:
+        params["data_fim"] = data_fim
+    return _request("GET", "/auditoria", token, params=params)
+
+
+def listar_usuarios_auditoria(token: str) -> list:
+    """RF22 - Autores que aparecem no log, para montar o filtro por usuário."""
+    return _request("GET", "/auditoria/usuarios", token)

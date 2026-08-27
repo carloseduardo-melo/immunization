@@ -8,6 +8,7 @@ from app.database import get_db
 from app.dependencies import get_admin_and_estadual, get_current_user
 from app.models import Municipio
 from app.schemas import MunicipioCreate, MunicipioOut, MunicipioUpdate, PaginatedMunicipios
+from app.services.auditoria import registrar, serializar
 
 router = APIRouter(prefix="/municipios", tags=["Municípios"])
 
@@ -133,10 +134,23 @@ def atualizar_municipio(
     if not municipio:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Município não encontrado.")
 
+    valores_antigos = serializar(municipio)
+
     municipio.nome = payload.nome
     municipio.uf = payload.uf
     municipio.regiao_saude = payload.regiao_saude
     municipio.polo = payload.polo
+
+    # RF21 - o log entra no mesmo commit da alteração que ele descreve.
+    registrar(
+        db,
+        tabela="municipios",
+        registro_id=municipio.id_ibge,
+        acao="UPDATE",
+        usuario=current_user,
+        valores_antigos=valores_antigos,
+        valores_novos=serializar(municipio),
+    )
     db.commit()
     db.refresh(municipio)
     return municipio
@@ -162,7 +176,18 @@ def desativar_municipio(
     if not municipio:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Município não encontrado.")
 
+    valores_antigos = serializar(municipio)
     municipio.ativo = False
+
+    registrar(
+        db,
+        tabela="municipios",
+        registro_id=municipio.id_ibge,
+        acao="DELETE",
+        usuario=current_user,
+        valores_antigos=valores_antigos,
+        valores_novos=serializar(municipio),
+    )
     db.commit()
     db.refresh(municipio)
     return municipio

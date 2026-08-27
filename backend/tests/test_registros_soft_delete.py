@@ -93,7 +93,8 @@ def test_delete_realiza_exclusao_logica_e_gera_auditoria(isolated_db):
 
     log = (
         isolated_db.query(LogAuditoria)
-        .filter(LogAuditoria.registro_id == registro_id)
+        # registro_id é texto no log: a coluna também guarda id_ibge e id de vacina.
+        .filter(LogAuditoria.registro_id == str(registro_id))
         .one()
     )
 

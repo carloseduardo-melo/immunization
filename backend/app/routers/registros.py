@@ -8,32 +8,17 @@ from sqlalchemy.orm import Session, aliased
 
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models import LogAuditoria, Municipio, RegistroVacinacao, Vacina
+from app.models import Municipio, RegistroVacinacao, Vacina
 from app.schemas import (
     PaginatedRegistros,
     RegistroVacinacaoCreate,
     RegistroVacinacaoOut,
     RegistroVacinacaoUpdate,
 )
+from app.services.auditoria import registrar, serializar
 from app.sql_views import marcar_fluxo_desatualizado
 
 router = APIRouter(prefix="/registros", tags=["Registros"])
-
-
-def _registro_para_auditoria(registro: RegistroVacinacao) -> dict:
-    """Serializa o registro em valores compatíveis com JSON/JSONB para auditoria."""
-    return {
-        "id": str(registro.id),
-        "data_vacinacao": registro.data_vacinacao.isoformat(),
-        "idade": registro.idade,
-        "vacina_id": registro.vacina_id,
-        "municipio_residencia_id": registro.municipio_residencia_id,
-        "municipio_vacina_id": registro.municipio_vacina_id,
-        "teve_deslocamento": registro.teve_deslocamento,
-        "quantidade": registro.quantidade,
-        "status_dado": registro.status_dado,
-        "ativo": registro.ativo,
-    }
 
 
 def _buscar_registro_ativo(db: Session, id: UUID) -> RegistroVacinacao:
@@ -289,7 +274,7 @@ def atualizar_registro(
     """RF08 - Edita (retifica) um registro ativo existente, recalcula `teve_deslocamento`/`status_dado`
     e grava um log de auditoria com os valores antigos e novos."""
     registro = _buscar_registro_ativo(db, id)
-    valores_antigos = _registro_para_auditoria(registro)
+    valores_antigos = serializar(registro)
 
     teve_deslocamento = None
     if payload.municipio_residencia_id:
@@ -311,18 +296,15 @@ def atualizar_registro(
     registro.status_dado = status_calculado
     registro.teve_deslocamento = teve_deslocamento
 
-    valores_novos = _registro_para_auditoria(registro)
-
-    log = LogAuditoria(
+    registrar(
+        db,
         tabela="registros_vacinacao",
         registro_id=registro.id,
         acao="UPDATE",
-        usuario_id=current_user.id,
+        usuario=current_user,
         valores_antigos=valores_antigos,
-        valores_novos=valores_novos,
+        valores_novos=serializar(registro),
     )
-    
-    db.add(log)
     db.commit()
     db.refresh(registro)
     marcar_fluxo_desatualizado(db)
@@ -365,24 +347,20 @@ def excluir_registro(
     """Exclui logicamente um registro (`ativo=false`) e grava um log de auditoria da exclusão.
     O registro permanece fisicamente no banco, mas deixa de aparecer nas listagens."""
     registro = _buscar_registro_ativo(db, id)
-    valores_antigos = _registro_para_auditoria(registro)
+    valores_antigos = serializar(registro)
 
     # Exclusão Lógica implementada aqui (RN05)
-    registro.ativo = False 
+    registro.ativo = False
 
-    valores_novos = dict(valores_antigos)
-    valores_novos["ativo"] = False
-
-    log = LogAuditoria(
+    registrar(
+        db,
         tabela="registros_vacinacao",
         registro_id=registro.id,
         acao="DELETE",
-        usuario_id=current_user.id,
+        usuario=current_user,
         valores_antigos=valores_antigos,
-        valores_novos=valores_novos,
+        valores_novos=serializar(registro),
     )
-
-    db.add(log)
     db.commit()
     marcar_fluxo_desatualizado(db)
     db.commit()
