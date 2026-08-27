@@ -19,6 +19,8 @@ def _limpar_cache():
         data_cache.alertas_completude,
         data_cache.sazonalidade,
         data_cache.alta_complexidade,
+        data_cache.logs_auditoria,
+        data_cache.usuarios_auditoria,
     ):
         funcao.clear()
     yield
@@ -192,3 +194,49 @@ def test_alta_complexidade_repassa_o_top_municipios(mock_obter):
     data_cache.alta_complexidade("token", top_municipios=5)
 
     assert mock_obter.call_args.kwargs == {"top_municipios": 5}
+
+
+@patch("data_cache.listar_logs_auditoria")
+def test_logs_auditoria_repassa_filtros_e_paginacao(mock_listar):
+    mock_listar.return_value = {"items": []}
+
+    data_cache.logs_auditoria(
+        "token",
+        usuario_id="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        tabela="municipios",
+        data_inicio="2026-08-01",
+        data_fim="2026-08-31",
+        page=2,
+        page_size=25,
+    )
+
+    assert mock_listar.call_args.kwargs == {
+        "usuario_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "tabela": "municipios",
+        "data_inicio": "2026-08-01",
+        "data_fim": "2026-08-31",
+        "page": 2,
+        "page_size": 25,
+    }
+
+
+@patch("data_cache.listar_logs_auditoria")
+def test_logs_auditoria_nao_repete_a_chamada_http(mock_listar):
+    mock_listar.return_value = {"items": []}
+
+    data_cache.logs_auditoria("token")
+    data_cache.logs_auditoria("token")
+
+    assert mock_listar.call_count == 1
+
+
+@patch("data_cache.listar_usuarios_auditoria")
+def test_usuarios_auditoria_nao_repete_a_chamada_http(mock_listar):
+    mock_listar.return_value = [{"id": "1", "email": "admin@saude.gov.br"}]
+
+    assert data_cache.usuarios_auditoria("token") == [
+        {"id": "1", "email": "admin@saude.gov.br"}
+    ]
+    data_cache.usuarios_auditoria("token")
+
+    assert mock_listar.call_count == 1

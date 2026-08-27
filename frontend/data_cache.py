@@ -20,7 +20,9 @@ import streamlit as st
 
 from api_client import (
     listar_alertas_completude,
+    listar_logs_auditoria,
     listar_todos_municipios,
+    listar_usuarios_auditoria,
     listar_vacinas,
     obter_alta_complexidade,
     obter_fluxo_intermunicipal,
@@ -134,3 +136,32 @@ def sazonalidade(
 def alta_complexidade(token: str, top_municipios: int = 3) -> dict:
     """RF18 - Poucas vacinas por resposta, mesmo TTL dos demais agregados."""
     return obter_alta_complexidade(token, top_municipios=top_municipios)
+
+
+@st.cache_data(ttl=TTL_AGREGADO, show_spinner=False)
+def logs_auditoria(
+    token: str,
+    usuario_id=None,
+    tabela=None,
+    data_inicio=None,
+    data_fim=None,
+    page: int = 1,
+    page_size: int = 10,
+) -> dict:
+    """RF22 - O log é imutável: um recorte já consultado não muda de conteúdo.
+    O TTL só limita quanto tempo uma alteração recente demora a aparecer."""
+    return listar_logs_auditoria(
+        token,
+        usuario_id=usuario_id,
+        tabela=tabela,
+        data_inicio=data_inicio,
+        data_fim=data_fim,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@st.cache_data(ttl=TTL_CADASTRO, show_spinner=False)
+def usuarios_auditoria(token: str) -> list:
+    """RF22 - Lista curta que alimenta o seletor de autor; muda raramente."""
+    return listar_usuarios_auditoria(token)

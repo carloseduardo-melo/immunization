@@ -5,6 +5,7 @@ import requests
 from streamlit_cookies_controller import CookieController
 
 from alta_complexidade_ui import render_alta_complexidade_section
+from auditoria_ui import render_auditoria_section
 from api_client import ApiError, obter_me
 from completude_ui import render_completude_section
 from fluxo_ui import render_fluxo_intermunicipal_section
@@ -535,6 +536,11 @@ else:
         "municipios": "🏙️ Gestão de Municípios & Vacinas",
     }
 
+    # RF22 - o log de auditoria é restrito ao Administrador, então nem o item de
+    # menu aparece para os demais perfis (o backend também recusa com 403).
+    if st.session_state["role"] == "ADMIN":
+        PAGINAS["auditoria"] = "🔍 Log de Auditoria"
+
     with st.sidebar:
         st.markdown(
             """
@@ -595,5 +601,7 @@ else:
         render_completude_section()
     elif st.session_state["pagina_ativa"] == "municipios":
         render_municipios_section()
+    elif st.session_state["pagina_ativa"] == "auditoria":
+        render_auditoria_section()
     else:
         render_registros_section()

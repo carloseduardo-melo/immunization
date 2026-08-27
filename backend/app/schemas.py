@@ -347,3 +347,35 @@ class VacinaAltaComplexidadeItem(BaseModel):
 class AltaComplexidadeResponse(BaseModel):
     items: list[VacinaAltaComplexidadeItem]
     total_vacinas: int
+
+
+# ==========================================
+# AUDITORIA (RF21 & RF22)
+# ==========================================
+
+
+class UsuarioAuditoriaOut(BaseModel):
+    """Autor que aparece no log, para montar o seletor da tela do RF22."""
+
+    id: UUID
+    email: str
+
+
+class LogAuditoriaOut(BaseModel):
+    id: UUID
+    tabela: str
+    registro_id: str
+    acao: str
+    usuario_id: UUID
+    usuario_email: str
+    valores_antigos: Optional[dict] = None
+    valores_novos: Optional[dict] = None
+    criado_em: datetime
+
+
+class PaginatedLogs(BaseModel):
+    items: list[LogAuditoriaOut]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
