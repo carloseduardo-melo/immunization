@@ -9,7 +9,7 @@ import streamlit as st
 
 from api_client import ApiError
 from data_cache import alta_complexidade
-from exportacao_ui import botao_exportar_csv
+from exportacao_ui import botao_exportar_csv, botao_exportar_pdf
 from theme import badge_html
 
 OPCOES_TOP = [3, 5, 10]
@@ -117,14 +117,23 @@ def render_alta_complexidade_section():
         )
 
     # RF19. Antes da consulta, para o botão sobreviver ao painel sem vacinas.
-    _, col_csv = st.columns([5, 1.4])
+    filtros = {"top_municipios": int(top_municipios)}
+    _, col_csv, col_pdf = st.columns([4, 1.4, 1.4])
     with col_csv:
         botao_exportar_csv(
             token,
             "alta-complexidade",
-            {"top_municipios": int(top_municipios)},
+            filtros,
             key="alta_complexidade",
             nome_arquivo="alta-complexidade.csv",
+        )
+    with col_pdf:
+        botao_exportar_pdf(
+            token,
+            "alta-complexidade",
+            filtros,
+            key="alta_complexidade",
+            nome_arquivo="alta-complexidade.pdf",
         )
 
     try:

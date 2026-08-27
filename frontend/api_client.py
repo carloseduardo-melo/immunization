@@ -263,18 +263,18 @@ def obter_alta_complexidade(token: str, top_municipios: int = 3) -> dict:
     )
 
 
-# --- EXPORTAÇÃO EM CSV (RF19) ---
+# --- EXPORTAÇÃO EM CSV (RF19) E RELATÓRIO EM PDF (RF20) ---
 
-# A exportação varre o recorte inteiro, não uma página: o timeout padrão de 10s
+# As duas varrem o recorte inteiro, não uma página: o timeout padrão de 10s
 # estoura na base real, como já acontecia na varredura de completude.
 TIMEOUT_EXPORTACAO = 120
 
 
-def exportar_csv(token: str, recurso: str, **filtros) -> tuple[bytes, bool]:
-    """Baixa o CSV de `/exportacoes/<recurso>` com os filtros da tela aplicados.
+def _baixar_arquivo(token: str, caminho: str, filtros: dict) -> tuple[bytes, bool]:
+    """Baixa um arquivo gerado pelo backend a partir dos filtros da tela.
 
-    Devolve o conteúdo do arquivo e se o backend truncou o recorte no teto de
-    linhas. Filtros nulos ou vazios são descartados, para que a exportação veja
+    Devolve o conteúdo e se o backend truncou o recorte no teto de linhas.
+    Filtros nulos ou vazios são descartados, para que o arquivo cubra
     exatamente o mesmo recorte que a listagem.
     """
     params: dict[str, Any] = {}
@@ -284,10 +284,16 @@ def exportar_csv(token: str, recurso: str, **filtros) -> tuple[bytes, bool]:
         params[chave] = str(valor).lower() if isinstance(valor, bool) else valor
 
     response = _requisitar(
-        "GET",
-        f"/exportacoes/{recurso}",
-        token,
-        timeout=TIMEOUT_EXPORTACAO,
-        params=params,
+        "GET", caminho, token, timeout=TIMEOUT_EXPORTACAO, params=params
     )
     return response.content, response.headers.get("X-Export-Truncated") == "true"
+
+
+def exportar_csv(token: str, recurso: str, **filtros) -> tuple[bytes, bool]:
+    """RF19 - Baixa o CSV de `/exportacoes/<recurso>`."""
+    return _baixar_arquivo(token, f"/exportacoes/{recurso}", filtros)
+
+
+def exportar_pdf(token: str, recurso: str, **filtros) -> tuple[bytes, bool]:
+    """RF20 - Baixa o relatório em PDF de `/relatorios/<recurso>`."""
+    return _baixar_arquivo(token, f"/relatorios/{recurso}", filtros)

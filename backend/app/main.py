@@ -11,6 +11,7 @@ from app.routers.registros import router as registros_router
 from app.routers.vacinas import router as vacinas_router
 from app.routers.dashboard import router as dashboard_router
 from app.routers.exportacoes import router as exportacoes_router
+from app.routers.relatorios import router as relatorios_router
 from app.routers.fluxo import router as fluxo_router
 from app.routers.completude import router as completude_router
 from app.routers.sazonalidade import router as sazonalidade_router
@@ -80,6 +81,13 @@ OPENAPI_TAGS = [
         ),
     },
     {
+        "name": "Relatórios",
+        "description": (
+            "Relatório consolidado de cada painel em PDF, com cabeçalho de "
+            "emissão, os filtros aplicados e a tabela (e o gráfico) do painel."
+        ),
+    },
+    {
         "name": "Alta Complexidade",
         "description": (
             "Vacinas de alta complexidade: taxa de deslocamento de cada uma e os "
@@ -145,6 +153,7 @@ app.include_router(completude_router)
 app.include_router(sazonalidade_router)
 app.include_router(alta_complexidade_router)
 app.include_router(exportacoes_router)
+app.include_router(relatorios_router)
 
 @app.get("/health")
 def health_check():
