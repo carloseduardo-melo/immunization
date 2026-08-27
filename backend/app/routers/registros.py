@@ -364,5 +364,7 @@ def excluir_registro(
     db.commit()
     marcar_fluxo_desatualizado(db)
     db.commit()
+    marcar_fluxo_desatualizado(db)
+    db.commit()
 
     return None
