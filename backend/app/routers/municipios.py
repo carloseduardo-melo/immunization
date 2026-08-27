@@ -12,6 +12,26 @@ from app.schemas import MunicipioCreate, MunicipioOut, MunicipioUpdate, Paginate
 router = APIRouter(prefix="/municipios", tags=["Municípios"])
 
 
+def construir_query_municipios(
+    db: Session,
+    uf: Optional[str] = None,
+    ativo: Optional[bool] = None,
+    search: Optional[str] = None,
+):
+    """Monta a query de municípios com os filtros da listagem, ordenada por nome.
+
+    Compartilhada com a exportação em CSV (RF19), que percorre o recorte inteiro
+    em vez de paginá-lo."""
+    query = db.query(Municipio)
+    if uf:
+        query = query.filter(Municipio.uf == uf.upper())
+    if ativo is not None:
+        query = query.filter(Municipio.ativo == ativo)
+    if search:
+        query = query.filter(Municipio.nome.ilike(f"%{search}%"))
+    return query.order_by(Municipio.nome)
+
+
 @router.get(
     "",
     response_model=PaginatedMunicipios,
@@ -35,20 +55,13 @@ def listar_municipios(
     if page_size > 100:
         page_size = 100
 
-    query = db.query(Municipio)
-    if uf:
-        query = query.filter(Municipio.uf == uf.upper())
-    if ativo is not None:
-        query = query.filter(Municipio.ativo == ativo)
-    if search:
-        query = query.filter(Municipio.nome.ilike(f"%{search}%"))
+    query = construir_query_municipios(db, uf=uf, ativo=ativo, search=search)
 
     total = query.count()
     total_pages = ceil(total / page_size) if total else 0
 
     items = (
-        query.order_by(Municipio.nome)
-        .offset((page - 1) * page_size)
+        query.offset((page - 1) * page_size)
         .limit(page_size)
         .all()
     )

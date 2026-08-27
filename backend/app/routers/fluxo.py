@@ -54,6 +54,29 @@ def _filtros_sql(
     return where_sql, params
 
 
+def consultar_pares_fluxo(db: Session, where_sql: str, params: dict, limite: int, offset: int = 0):
+    """Pares (origem, destino) com o total de doses, do maior fluxo para o menor.
+
+    Usada pela tela paginada e pela exportação em CSV (RF19), que pede um lote
+    único e maior em vez de uma página."""
+    return db.execute(
+        text(f"""
+            SELECT
+                municipio_origem_id,
+                MIN(municipio_origem_nome) AS municipio_origem_nome,
+                municipio_destino_id,
+                MIN(municipio_destino_nome) AS municipio_destino_nome,
+                SUM(total_doses) AS total_doses
+            FROM {VIEW_NAME}
+            {where_sql}
+            GROUP BY municipio_origem_id, municipio_destino_id
+            ORDER BY total_doses DESC, municipio_origem_id, municipio_destino_id
+            LIMIT :limit OFFSET :offset
+        """),
+        {**params, "limit": limite, "offset": offset},
+    ).mappings().all()
+
+
 @router.get(
     "/intermunicipal",
     response_model=FluxoIntermunicipalResponse,
@@ -106,22 +129,9 @@ def obter_fluxo_intermunicipal(
     total = int(resumo["total_pares"])
     total_pages = ceil(total / page_size) if total else 0
 
-    rows = db.execute(
-        text(f"""
-            SELECT
-                municipio_origem_id,
-                MIN(municipio_origem_nome) AS municipio_origem_nome,
-                municipio_destino_id,
-                MIN(municipio_destino_nome) AS municipio_destino_nome,
-                SUM(total_doses) AS total_doses
-            FROM {VIEW_NAME}
-            {where_sql}
-            GROUP BY municipio_origem_id, municipio_destino_id
-            ORDER BY total_doses DESC, municipio_origem_id, municipio_destino_id
-            LIMIT :limit OFFSET :offset
-        """),
-        {**params, "limit": page_size, "offset": (page - 1) * page_size},
-    ).mappings().all()
+    rows = consultar_pares_fluxo(
+        db, where_sql, params, limite=page_size, offset=(page - 1) * page_size
+    )
 
     return FluxoIntermunicipalResponse(
         items=[FluxoIntermunicipalItem(**row) for row in rows],

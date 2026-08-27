@@ -13,6 +13,30 @@ from app.schemas import PaginatedVacinas, VacinaCreate, VacinaOut, VacinaUpdate
 router = APIRouter(prefix="/vacinas", tags=["Vacinas"])
 
 
+def construir_query_vacinas(
+    db: Session,
+    alta_complexidade: Optional[bool] = None,
+    ativo: Optional[bool] = None,
+    search: Optional[str] = None,
+):
+    """Monta a query de vacinas com os filtros da listagem, ordenada por nome.
+
+    Compartilhada com a exportação em CSV (RF19), que percorre o recorte inteiro
+    em vez de paginá-lo."""
+    query = db.query(Vacina)
+
+    if alta_complexidade is not None:
+        query = query.filter(Vacina.alta_complexidade == alta_complexidade)
+
+    if ativo is not None:
+        query = query.filter(Vacina.ativo == ativo)
+
+    if search:
+        query = query.filter(Vacina.nome.ilike(f"%{search}%"))
+
+    return query.order_by(Vacina.nome)
+
+
 @router.get(
     "",
     response_model=PaginatedVacinas,
@@ -36,23 +60,15 @@ def listar_vacinas(
     if page_size > 100:
         page_size = 100
 
-    query = db.query(Vacina)
-    
-    if alta_complexidade is not None:
-        query = query.filter(Vacina.alta_complexidade == alta_complexidade)
-    
-    if ativo is not None:
-        query = query.filter(Vacina.ativo == ativo)
-    
-    if search:
-        query = query.filter(Vacina.nome.ilike(f"%{search}%"))
+    query = construir_query_vacinas(
+        db, alta_complexidade=alta_complexidade, ativo=ativo, search=search
+    )
 
     total = query.count()
     total_pages = ceil(total / page_size) if total else 0
 
     items = (
-        query.order_by(Vacina.nome)
-        .offset((page - 1) * page_size)
+        query.offset((page - 1) * page_size)
         .limit(page_size)
         .all()
     )

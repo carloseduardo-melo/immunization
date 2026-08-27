@@ -10,6 +10,7 @@ from app.routers.municipios import router as municipios_router
 from app.routers.registros import router as registros_router
 from app.routers.vacinas import router as vacinas_router
 from app.routers.dashboard import router as dashboard_router
+from app.routers.exportacoes import router as exportacoes_router
 from app.routers.fluxo import router as fluxo_router
 from app.routers.completude import router as completude_router
 from app.routers.sazonalidade import router as sazonalidade_router
@@ -69,6 +70,13 @@ OPENAPI_TAGS = [
         "description": (
             "Volume de vacinação por mês do ano (Jan a Dez), com índice de "
             "sazonalidade, pico e vale, para apoiar o planejamento de campanhas."
+        ),
+    },
+    {
+        "name": "Exportações",
+        "description": (
+            "Download em CSV do recorte filtrado de cada tela de listagem, com "
+            "os mesmos filtros aceitos pelo endpoint que alimenta a tela."
         ),
     },
     {
@@ -136,6 +144,7 @@ app.include_router(fluxo_router)
 app.include_router(completude_router)
 app.include_router(sazonalidade_router)
 app.include_router(alta_complexidade_router)
+app.include_router(exportacoes_router)
 
 @app.get("/health")
 def health_check():

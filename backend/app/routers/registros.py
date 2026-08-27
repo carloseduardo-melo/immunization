@@ -60,13 +60,8 @@ def _buscar_municipio(db: Session, id_ibge: str) -> Municipio:
     return municipio
 
 
-@router.get(
-    "",
-    response_model=PaginatedRegistros,
-    summary="Listar registros de vacinação",
-    responses={401: {"description": "Token ausente ou inválido."}},
-)
-def listar_registros(
+def construir_query_registros(
+    db: Session,
     search: Optional[str] = None,
     municipio_id: Optional[str] = None,
     vacina_id: Optional[int] = None,
@@ -75,21 +70,13 @@ def listar_registros(
     idade_min: Optional[int] = None,
     idade_max: Optional[int] = None,
     status_dado: Optional[str] = None,
-    page: int = 1,
-    page_size: int = 10,
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
 ):
-    """Lista e pagina os registros de vacinação ativos, incluindo nomes dos municípios e vacinas.
+    """Monta a query de registros ativos com os filtros da listagem aplicados.
 
-    Suporta filtros combináveis por município (residência ou aplicação),
-    vacina, faixa de data, faixa de idade e status do dado."""
-    if page < 1: page = 1
-    if page_size < 1: page_size = 10
-    # Teto igual ao de /municipios e /vacinas: sem ele, um page_size grande
-    # traria centenas de milhares de registros numa única resposta.
-    if page_size > 100: page_size = 100
-
+    Cada linha vem como (registro, município de aplicação, município de
+    residência, vacina). A listagem pagina esta query; a exportação em CSV
+    (RF19) percorre o recorte inteiro - por isso a montagem dos filtros vive
+    aqui, e não dentro do endpoint."""
     MunicipioResidencia = aliased(Municipio)
 
     # Inicia a query filtrando apenas registros ativos (RN05)
@@ -135,12 +122,56 @@ def listar_registros(
     if status_dado:
         query = query.filter(RegistroVacinacao.status_dado == status_dado)
 
+    return query.order_by(RegistroVacinacao.data_vacinacao.desc(), RegistroVacinacao.id)
+
+
+@router.get(
+    "",
+    response_model=PaginatedRegistros,
+    summary="Listar registros de vacinação",
+    responses={401: {"description": "Token ausente ou inválido."}},
+)
+def listar_registros(
+    search: Optional[str] = None,
+    municipio_id: Optional[str] = None,
+    vacina_id: Optional[int] = None,
+    data_inicio: Optional[date] = None,
+    data_fim: Optional[date] = None,
+    idade_min: Optional[int] = None,
+    idade_max: Optional[int] = None,
+    status_dado: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 10,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Lista e pagina os registros de vacinação ativos, incluindo nomes dos municípios e vacinas.
+
+    Suporta filtros combináveis por município (residência ou aplicação),
+    vacina, faixa de data, faixa de idade e status do dado."""
+    if page < 1: page = 1
+    if page_size < 1: page_size = 10
+    # Teto igual ao de /municipios e /vacinas: sem ele, um page_size grande
+    # traria centenas de milhares de registros numa única resposta.
+    if page_size > 100: page_size = 100
+
+    query = construir_query_registros(
+        db,
+        search=search,
+        municipio_id=municipio_id,
+        vacina_id=vacina_id,
+        data_inicio=data_inicio,
+        data_fim=data_fim,
+        idade_min=idade_min,
+        idade_max=idade_max,
+        status_dado=status_dado,
+    )
+
     total = query.count()
     total_pages = ceil(total / page_size) if total else 0
 
     resultados = (
-        query.order_by(RegistroVacinacao.data_vacinacao.desc(), RegistroVacinacao.id)
-        .offset((page - 1) * page_size)
+        query.offset((page - 1) * page_size)
         .limit(page_size)
         .all()
     )
