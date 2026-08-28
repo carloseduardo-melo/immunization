@@ -5,6 +5,7 @@ import uuid
 
 import pytest
 from fastapi import HTTPException
+from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.testclient import TestClient
 from sqlalchemy.dialects import postgresql, sqlite
 
@@ -115,7 +116,10 @@ def test_usuario_do_token_precisa_existir_no_banco(db_session):
 
 def test_get_current_user_rejeita_token_malformado(db_session):
     with pytest.raises(HTTPException) as exc:
-        get_current_user(token="lixo", db=db_session)
+        get_current_user(
+            credentials=HTTPAuthorizationCredentials(scheme="Bearer", credentials="lixo"),
+            db=db_session,
+        )
     assert exc.value.status_code == 401
 
 

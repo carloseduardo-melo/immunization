@@ -1,7 +1,7 @@
 from typing import Iterable
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
@@ -9,12 +9,22 @@ from app.database import get_db
 from app.models import UsuarioAdmin
 from app.security import ALGORITHM, SECRET_KEY
 
-# Esquema OAuth2 que diz ao FastAPI onde buscar o token
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+# O token sai de POST /auth/login, que recebe JSON {email, password}. Declarar
+# um OAuth2PasswordBearer aqui fazia o botao Authorize do Swagger tentar obter o
+# token sozinho, postando um form com o campo `username` - formato que aquele
+# endpoint nao aceita, o que devolvia 422 e deixava a pagina inteira sem token.
+# HTTPBearer descreve o que a API de fato espera: um Bearer pronto no cabecalho.
+bearer_scheme = HTTPBearer(
+    description="Cole o access_token devolvido por POST /auth/login."
+)
 
 
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+):
     """Middleware: Exige Token JWT válido. Retorna 401 se ausente ou expirado."""
+    token = credentials.credentials
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Token ausente ou inválido.",
