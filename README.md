@@ -1,7 +1,7 @@
 # 💉 Caminhos da Imunização
 
 > Plataforma de inteligência geográfica e epidemiológica para análise do deslocamento vacinal no Estado do Ceará, desenvolvida como atividade da disciplina de **Projeto III**.
-
+> site https://caminhosdaimunizacao.tech/
 > login:admin@imunizacao.local
 > senha:Admin@123
 
@@ -209,19 +209,6 @@ A pipeline de CD poderá ser utilizada para:
 - Deploy em ambiente de homologação
 - Deploy em ambiente de produção (quando aplicável)
 - Geração de artefatos da aplicação
-
----
-
-# 📘 Documentação
-
-- **[Manual do Usuário](docs/MANUAL_DO_USUARIO.md)** — para gestores e administradores:
-  primeiro acesso, navegação, cada tela explicada, como interpretar os indicadores,
-  exportações, perfis e permissões, mensagens do sistema e perguntas frequentes.
-
-- **[Manual Técnico](docs/MANUAL_TECNICO.md)** — para desenvolvedores e avaliadores:
-  arquitetura, modelo de dados, regras de negócio, catálogo completo da API,
-  camada de serviço, frontend, ETL, migrations, testes, execução local, Docker,
-  CI/CD, operação e as limitações conhecidas do projeto.
 
 ---
 
