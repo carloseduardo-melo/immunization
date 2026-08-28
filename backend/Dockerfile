@@ -37,5 +37,10 @@ COPY . .
 # Expõe a porta que o FastAPI vai utilizar
 EXPOSE 8000
 
-# Comando para iniciar o servidor ASGI (Uvicorn)
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Garante o bit de execucao: o repositorio e clonado tambem no Windows, que nao
+# preserva permissoes de ficheiro.
+RUN chmod +x /app/entrypoint.sh
+
+# O entrypoint aplica as migrations do Alembic e so depois passa o processo
+# para o Uvicorn (ver backend/entrypoint.sh).
+ENTRYPOINT ["/app/entrypoint.sh"]

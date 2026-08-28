@@ -8,7 +8,9 @@ from dotenv import load_dotenv
 
 
 load_dotenv()
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'backend')))
+# As migrations vivem dentro de backend/ para entrarem na imagem Docker, entao
+# o diretorio pai ja e a raiz do pacote `app`.
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from app.models import Base
 
 
