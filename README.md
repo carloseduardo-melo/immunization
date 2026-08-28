@@ -212,6 +212,19 @@ A pipeline de CD poderá ser utilizada para:
 
 ---
 
+# 📘 Documentação
+
+- **[Manual do Usuário](docs/MANUAL_DO_USUARIO.md)** — para gestores e administradores:
+  primeiro acesso, navegação, cada tela explicada, como interpretar os indicadores,
+  exportações, perfis e permissões, mensagens do sistema e perguntas frequentes.
+
+- **[Manual Técnico](docs/MANUAL_TECNICO.md)** — para desenvolvedores e avaliadores:
+  arquitetura, modelo de dados, regras de negócio, catálogo completo da API,
+  camada de serviço, frontend, ETL, migrations, testes, execução local, Docker,
+  CI/CD, operação e as limitações conhecidas do projeto.
+
+---
+
 # 🔍 Log de Auditoria (RF21, RF22 e RNF09)
 
 Toda operação de **Update** ou **Delete** em `registros_vacinacao`, `municipios`
